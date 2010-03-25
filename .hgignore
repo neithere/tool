@@ -1,0 +1,7 @@
+# temp files
+~$
+\.pyc$
+\.pyo$
+\.orig$
+\.sw(n|o|p)$
+^tmp_
