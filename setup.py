@@ -10,7 +10,11 @@ setup(
     version = tool.__version__,
     packages = find_packages(),
 
-    install_requires = ['docutils>=0.3'],
+    install_requires = [
+        'opster >= 0.9.9',  # console interface
+        'werkzeug >= 0.6',  # web interface
+        'pyyaml >= 3.08',   # configuration
+    ],
 
     # metadata for upload to PyPI
     author = "Andrey Mikhaylenko",
