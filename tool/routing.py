@@ -4,6 +4,7 @@
 URL routing. A thin wrapper around Werkzeug's routing module.
 """
 
+import sys
 from werkzeug.routing import *
 from tool.context import context
 
@@ -18,7 +19,6 @@ def url(string=None, **kw):
     support the easiest case (URL is equal to function name) and require the
     rule to be explicitly defined when the function accepts arguments.
 
-    Can be chained so that the view function is available under different URLs.
 
     Usage::
 
@@ -42,6 +42,16 @@ def url(string=None, **kw):
 
     ...and so on.
 
+    The ``url`` decorators can be chained so that the view function is
+    available under different URLs::
+
+        @url('/archive/')
+        @url('/archive/<int:year>/')
+        @url('/archive/<int:year>/<int:month>/')
+        def archive(request, **kwargs):
+            entries = Entry.objects(db).where(**kwargs)
+            return ', '.join(unicode(e) for e in entries)
+
     """
     def inner(view):
         if 'endpoint' in kw:
@@ -55,27 +65,67 @@ def url(string=None, **kw):
                              'decorator if the wrapped view function '
                              'accepts more than one argument.')
         kw['string'] = string or '/%s/' % view.__name__
-
-        #context.urls = getattr(context, 'urls', Map())
-        #context.urls.add(Rule(rule, **kw))
-        #context.views = getattr(context, 'views', ViewFinder())
-        #context.views.add_view(endpoint, f)
-
         view.url_rules = getattr(view, 'url_rules', [])
         view.url_rules.append(Rule(**kw))
         return view
     return inner
 
-def find_in(mod_or_dict):
+def find_urls(source):
     """
     Accepts either module or dictionary.
-    Returns a cumulative list of rules for all objects in given module or
-    dictionary that are a) callable, and b) have the attribute ``url_rules``.
+
+    Returns a cumulative list of rules for all members of given module or
+    dictionary.
+
+    How does this work? Any callable object can provide a list of rules as its
+    own attribute named ``url_rules``.  The ``url`` decorator adds such an
+    attribute to the wrapped object and sets the object as endpoint for rules
+    being added. ``find_urls``, however, does not care about endpoints, it
+    simply gathers rules scattered all over the place.
+
+    Usage::
+
+        from tool.routing import Map, Submount
+        import foo.views
+
+        # define a view exposed at given URL. Note that it is *not* a good idea
+        # to mix views with configuration and management code in real apps.
+        @url('/hello/')
+        def hello(request):
+            return 'Hello!'
+
+        # gather URLs from this module (yields the "hello" one)
+        local_urls = find_urls(locals())
+
+        # gather URLs from some bundle's views module
+        foo_urls = find_urls(foo.views)
+
+        # gather URLs from a module that is not imported yet
+        bar_urls = find_urls('bar.views')
+
+        url_map = Map(
+            local_urls + [
+                Submount('/foo/', foo_urls),
+                Submount('/bar/', bar_urls),
+            ]
+        )
+
+        # ...make app, etc.
+
+    Such approach does not impose any further conventions (such as where to
+    place the views) and leaves it up to you whether to store URL mappings and
+    views in separate modules or keep them together using the ``url``
+    decorator. It is considered good practice, however, to not mix different
+    things in the same module.
     """
-    if isinstance(mod_or_dict, dict):
-        d = mod_or_dict
+    if isinstance(source, dict):
+        d = source
     else:
-        d = dict((n, getattr(mod_or_dict, n)) for n in dir(mod_or_dict))
+        if isinstance(source, basestring):
+            # import module by dotted path
+            __import__(source, globals(), locals(), [], -1)
+            source = sys.modules[source]
+        d = dict((n, getattr(source, n)) for n in dir(source))
 
     def generate(d):
         for name, attr in d.iteritems():
