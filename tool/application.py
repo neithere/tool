@@ -6,7 +6,11 @@ from tool.commands import command
 from tool.context import context
 
 
-def make_app(url_map, with_commands=True):
+def make_app(config, url_map, with_commands=True):
+    context.config = config
+
+    init_bundles(config)
+
     def find_and_call_view(endpoint, v):
         # NOTE: this supports only callable endpoints
         assert hasattr(endpoint, '__call__')
@@ -26,6 +30,27 @@ def make_app(url_map, with_commands=True):
         register_commands(app)
 
     return app
+
+def init_bundles(config):
+    """
+    Initialized bundles defined in config['init_bundles'].
+    This is not required for the bundles to work.
+    Each initializer must be a callable object or a dotted path to it.
+    Example initializer::
+
+        def init(config, context):
+            path = config.get('foo_path', '.')
+            context.foo = Foo(path)
+
+    """
+    for initializer in config.get('init_bundles', []):
+        if isinstance(initializer, basestring):
+            name = initializer
+            i = name.rfind('.')
+            module, attr = name[:i], name[i+1:]
+            mod = __import__(module, globals(), locals(), [attr])
+            initializer = getattr(mod, attr)
+        initializer(config, context)
 
 def register_commands(app):
     """
