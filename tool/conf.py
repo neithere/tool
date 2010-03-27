@@ -21,10 +21,11 @@ def load(source, format=YAML):
 
     # file -> string
     if isinstance(source, file):
-        source = open(source).read()
+        source = source.read()
 
     # string -> dict -> :)
     if isinstance(source, basestring):
         conf = yaml.load(source)
-        assert isinstance(conf, dict), 'deserialized object must be a dict'
+        assert isinstance(conf, dict), (
+            'expected dict from deserialized config, got %s' % conf)
         return conf
