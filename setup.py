@@ -11,9 +11,10 @@ setup(
     packages = find_packages(),
 
     install_requires = [
-        'opster >= 0.9.9',  # console interface
-        'werkzeug >= 0.6',  # web interface
-        'pyyaml >= 3.08',   # configuration
+        'opster >= 0.9.9',       # console interface
+        'werkzeug >= 0.6',       # web interface
+        'pydispatcher >= 2.0.1', # signals
+        'pyyaml >= 3.08',        # configuration
     ],
 
     # metadata for upload to PyPI

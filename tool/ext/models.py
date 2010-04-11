@@ -8,7 +8,6 @@ DEFAULTS = {
     'backend': 'pymodels.backends.tokyo_tyrant',
     'host': 'localhost',
     'port': 1978,
-    #'path': '',
 }
 
 
@@ -40,7 +39,5 @@ def setup(config, context):
     """
     Setup the application to use PyModels.
     """
-    conf = dict(config.get('pymodels', {}))
-    for k in DEFAULTS:
-        conf.setdefault(k, DEFAULTS[k])
+    conf = config.get('pymodels', DEFAULTS)
     context.pymodels_db = get_storage(conf)

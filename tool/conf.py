@@ -5,27 +5,57 @@ The configuration is just a dictionary. It may come from different sources and
 in different formats, so we just provide some shortcuts to simplify things.
 """
 
-import yaml
+import os.path
+from tool.importing import import_attribute
+
+__all__ = ['ConfigurationError', 'load']
 
 
-YAML = 'yaml'
-FORMATS = [YAML]
+FORMATS = {
+    'yaml': 'yaml.load',
+    'json': 'json.loads',
+}
 
 
-def load(source, format=YAML):
+class ConfigurationError(Exception):
+    pass
+
+
+def load(path, format=None):
+    """
+    Expects a filename, returns a dictionary. Raises ConfigurationError if
+    the file could not be read or parsed.
+    """
+    if not os.path.exists(path):
+        raise ConfigurationError('File "%s" does not exist' % path)
+
+    # guess file format
+    if not format:
+        for known_format in FORMATS:
+            if path.endswith('.%s' % known_format):
+                format = known_format
+                break
+        else:
+            raise ConfigurationError('Could not guess format for "%s"' % path)
     assert format in FORMATS, 'unknown format %s' % format
 
-    # dict -> :)
-    if isinstance(source, dict):
-        return source
+    # deserialize file contents to a Python dictionary
+    try:
+        f = open(path)
+    except IOError as e:
+        raise ConfigurationError('Could not open "%s": %s' % (path, e))
+    data = f.read()
+    try:
+        loader = import_attribute(FORMATS[format])
+    except ImportError as e:
+        raise ConfigurationError('Could not import "%s" format loader: %s'
+                                 % (format, e))
+    try:
+        conf = loader(data)
+    except Exception as e:
+        raise ConfigurationError('Could not deserialize config data: %s' % e)
 
-    # file -> string
-    if isinstance(source, file):
-        source = source.read()
-
-    # string -> dict -> :)
-    if isinstance(source, basestring):
-        conf = yaml.load(source)
-        assert isinstance(conf, dict), (
-            'expected dict from deserialized config, got %s' % conf)
-        return conf
+    if not isinstance(conf, dict):
+        raise ConfigurationError('Deserialized config must be a dict, got "%s"'
+                                 % conf)
+    return conf

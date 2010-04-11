@@ -6,7 +6,9 @@ URL routing. A thin wrapper around Werkzeug's routing module.
 
 import sys
 from werkzeug.routing import *
+from werkzeug import redirect
 from tool.context import context
+from tool.importing import import_module, import_whatever
 
 
 def url(string=None, **kw):
@@ -70,6 +72,15 @@ def url(string=None, **kw):
         return view
     return inner
 
+def url_for(endpoint, **kwargs):
+    try:
+        return context.urls.build(endpoint, kwargs)
+    except BuildError:
+        if isinstance(endpoint, basestring):
+            # we store callable endpoints, so try importing
+            endpoint = import_whatever(endpoint)
+        return context.urls.build(endpoint, kwargs)
+
 def find_urls(source):
     """
     Accepts either module or dictionary.
@@ -122,9 +133,7 @@ def find_urls(source):
         d = source
     else:
         if isinstance(source, basestring):
-            # import module by dotted path
-            __import__(source, globals(), locals(), [], -1)
-            source = sys.modules[source]
+            source = import_module(source)
         d = dict((n, getattr(source, n)) for n in dir(source))
 
     def generate(d):
@@ -133,3 +142,7 @@ def find_urls(source):
                 for rule in attr.url_rules:
                     yield rule
     return list(generate(d))
+
+def redirect_to(endpoint, **kwargs):
+    url = url_for(endpoint, **kwargs)
+    return redirect(url)

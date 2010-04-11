@@ -10,12 +10,16 @@ def print_url_map(url_map):
         return endpoint
     print
     print ' URLS:'
+    if not url_map._rules:
+        print '   (the URL map does not contain any rules.)'
+        print
+        return
     max_len = max(len(unicode(rule)) for rule in url_map._rules)
     for rule in url_map._rules:
         print '   %(rule)s %(padding)s %(endpoint)s %(arguments)s' % {
             'rule': rule,
             'padding': '.' * (max_len - len(unicode(rule)) + 2),
             'endpoint': get_endpoint_repr(rule.endpoint),
-            'arguments': tuple(rule.arguments) if rule.arguments else '',
+            'arguments': '(%s)'%', '.join(rule.arguments) if rule.arguments else '',
         }
     print
