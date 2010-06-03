@@ -103,21 +103,26 @@ class ApplicationManager(object):    # TODO: adapt docstring from make_app (whic
 
             app.add_files('pictures')
 
-        If you have a file `pictures/image123.jpg`, it will be accessible at
-        the URL `http://localhost:6060/media/image123.jpg`.
+        If you have the file `pictures/image123.jpg`, it will be accessible at
+        the URL `http://localhost:6060/media/pictures/image123.jpg`. Note that
+        the resulting URL is automatically prefixed with "media" to avoid
+        clashes with other URLs.
 
         To specify custom URLs (especially if you are adding multiple
         directories) provide the relevant rules, e.g.::
 
-            app.add_files('pictures', '/images')  # /images/image123.jpg
-            app.add_files('docs', '/text')        # /text/report456.pdf
+            # ./pictures/image123.jpg --> http://localhost/images/image123.jpg
+            app.add_files('pictures', '/images')
+
+            # ./text/report456.pdf --> http://localhost/text/report456.pdf
+            app.add_files('docs', '/text')
 
         The path to directory can be either absolute or relative to the
         project.
 
         To build a URL, type::
 
-            app.urls.build('media:pictures', {'file': 'image123.jpg')
+            app.urls.build('media:pictures', {'file': 'image123.jpg'})
 
         (The `media:` prefix is added automatically; if will not be present if
         you specify custom `endpoint` param or if the innermost directory in

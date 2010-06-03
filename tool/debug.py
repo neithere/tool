@@ -1,5 +1,13 @@
 # -*- coding: utf-8 -*-
 
+"""
+Werkzeug provides excellent `debugging features`_. This module only provides a
+few wrappers for easier coupling of these features with the Tool API.
+
+.. _debugging features: http://werkzeug.pocoo.org/documentation/dev/test.html
+
+"""
+
 from werkzeug import BaseResponse, Client
 from tool.context_locals import context
 

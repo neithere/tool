@@ -1,8 +1,7 @@
 Signals
 =======
 
-We use PyDispatcher to send and receive signals. Tool also provides a
-convenience decorator for them.
+.. _PyDispatcher: http://pypi.python.org/pypi/PyDispatcher/
 
 .. automodule:: tool.signals
    :members:

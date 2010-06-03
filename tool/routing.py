@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 
 """
-URL routing. A thin wrapper around Werkzeug's routing module.
+Dispatching URLs is perfectly `managed by Werkzeug`_. This is a thin wrapper
+around Werkzeug's routing module. Please read the original reference elsewhere.
+Only Tool-related functions are documented here.
+
+.. _managed by Werkzeug: http://werkzeug.pocoo.org/documentation/dev/routing.html
 """
 
 import sys

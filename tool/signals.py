@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 
 """
-This is a very thin wrapper around PyDispatcher. Take a look at its
-documentation for API reference.
+Tool makes use of `PyDispatcher`_ to send and receive signals. That's an
+excellent "multi-producer-multi-consumer signal dispatching mechanism". The
+only thing added here is a convenience decorator :func:`~connected`.
+
+.. _PyDispatcher: http://pypi.python.org/pypi/PyDispatcher/
+
 """
 
 from functools import wraps
