@@ -7,7 +7,7 @@ URL routing. A thin wrapper around Werkzeug's routing module.
 import sys
 from werkzeug.routing import *
 from werkzeug import redirect
-from tool.context import context
+from tool.context_locals import context
 from tool.importing import import_module, import_whatever
 
 
@@ -74,12 +74,12 @@ def url(string=None, **kw):
 
 def url_for(endpoint, **kwargs):
     try:
-        return context.urls.build(endpoint, kwargs)
+        return context.app_manager.urls.build(endpoint, kwargs)
     except BuildError:
         if isinstance(endpoint, basestring):
             # we store callable endpoints, so try importing
             endpoint = import_whatever(endpoint)
-        return context.urls.build(endpoint, kwargs)
+        return context.app_manager.urls.build(endpoint, kwargs)
 
 def find_urls(source):
     """

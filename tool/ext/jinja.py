@@ -1,16 +1,28 @@
 # -*- coding: utf-8 -*-
 
+"""
+Configuration example (in YAML)::
+
+    bundles:
+        - tool.ext.jinja
+    templates:
+        searchpaths:
+            - /home/www/some_site/templates/
+
+"""
+
 from copy import deepcopy
 from functools import wraps
 from jinja2 import Environment, FileSystemLoader
 from werkzeug import Response
-from tool.context import context
+from tool.context_locals import context
 from tool.routing import url_for
 from tool import signals
 from tool.application import request_ready
 
 
 DEFAULT_PATH = 'templates'
+
 
 # Template rendering
 
@@ -41,8 +53,8 @@ def as_html(template_path):
         return inner
     return wrapper
 
-def setup(settings, context):
-    conf = deepcopy(settings.get('templates', {}))
+def setup(app):
+    conf = deepcopy(app.settings.get('templates', {}))
 
     # TODO: per bundle?
     #conf = dict(conf).setdefault('paths', ['templates'])

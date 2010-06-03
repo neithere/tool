@@ -8,9 +8,9 @@ function or whatever. Thread safe.
 from werkzeug import Local, LocalManager
 
 
-__all__ = ['application', 'context', 'context_manaer']
+__all__ = ['context', 'context_manager']
 
 
 context = Local()
 context_manager = LocalManager([context])
-application = context('application')
+#application = context('application')
