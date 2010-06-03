@@ -25,6 +25,11 @@ def load(path, format=None):
     """
     Expects a filename, returns a dictionary. Raises ConfigurationError if
     the file could not be read or parsed.
+
+    :param path: path to the file.
+    :param format: format in which the configuration dictionary in serialized
+        in the file (one of: "yaml", "json").
+
     """
     if not os.path.exists(path):
         raise ConfigurationError('File "%s" does not exist' % path)

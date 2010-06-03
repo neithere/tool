@@ -6,7 +6,7 @@ import tool
 
 
 setup(
-    name = "tool",
+    name = 'tool',
     version = tool.__version__,
     packages = find_packages(),
 
@@ -18,9 +18,24 @@ setup(
     ],
 
     # metadata for upload to PyPI
-    author = "Andrey Mikhaylenko",
-    author_email = "andy@neithere.net",
-    description = "A compact modular web/console framework.",
-    license = "GPL3",
-    keywords = "web framework",
+    author = 'Andrey Mikhaylenko',
+    author_email = 'andy@neithere.net',
+    description = 'A compact modular web/console framework.',
+    long_description='A compact modular web/console framework. Based on '
+                     'Werkzeug+Pydispatcher+Opster.',
+    license = 'GPL3',
+    keywords = 'wsgi web framework',
+    classifiers = [
+        'Development Status :: 2 - Pre-Alpha',
+        'Environment :: Console',
+        'Environment :: Web Environment',
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: GNU General Public License (GPL)',
+        'Programming Language :: Python',
+        'Topic :: Internet :: WWW/HTTP :: WSGI',
+        'Topic :: Internet :: WWW/HTTP :: WSGI :: Application',
+        'Topic :: Internet :: WWW/HTTP :: WSGI :: Middleware',
+        'Topic :: Software Development :: Libraries :: Application Frameworks',
+        'Topic :: Software Development :: Libraries :: Python Modules',
+    ],
 )

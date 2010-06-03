@@ -5,3 +5,4 @@
 \.orig$
 \.sw(n|o|p)$
 ^tmp_
+^build/

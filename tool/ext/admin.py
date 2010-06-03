@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Administrative interface for PyModels.
+Administrative interface for PyModels. Requires :mod:`tool.ext.models` to be
+properly set up.
+
+Configuration example (in YAML)::
+
+    bundles:
+        - tool.ext.models
+        - tool.ext.admin
+
 """
 
 from tool.routing import url, BuildError, redirect_to
@@ -28,6 +36,16 @@ def register(model, namespace='main', url=None, exclude=None):
     :param namespace: a short string that will be part of the URL. Default
         is "main".
     :param url: a function that gets a model instance and returns an URL
+
+    Usage::
+
+        from pymodels import Model
+        from tool.ext import admin
+
+        class Item(Model):
+            ...
+        admin.register(Item)
+
     """
     # TODO: model should provide a slugified version of its name itself
     name = model.__name__ #.lower()

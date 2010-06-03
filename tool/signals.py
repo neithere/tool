@@ -9,7 +9,7 @@ from functools import wraps
 from pydispatch.dispatcher import _Any, connect, disconnect, send
 
 
-__all__ = ['connect', 'connected', 'disconnect', 'fire_on', 'send']
+__all__ = ['connect', 'connected', 'disconnect', 'send']
 
 
 def connected(*args, **kwargs):
