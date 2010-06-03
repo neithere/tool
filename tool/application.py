@@ -67,11 +67,16 @@ class ApplicationManager(object):    # TODO: adapt docstring from make_app (whic
             Rule('/bar/', endpoint='bar')
         ])
 
+    Werkzeug debugger is disabled by default but can be enabled by setting the
+    configuration variable `debug` to `True`.
+
     """
     def __init__(self, settings, url_map=None):
         self.settings = self._prepare_settings(settings)
-        self.url_map = url_map or Map()
-        self.urls = None    # bonotund MapAdapter
+        self.url_map = url_map or Map()    # unbound URLs
+        # when the WSGI application is compiled, self.url_map is bound to the
+        # environment and the resulting MapAdapter instance is set to self.urls
+        self.urls = None    # bound URLs
 
         self.wsgi_stack = []
 
@@ -136,7 +141,7 @@ class ApplicationManager(object):    # TODO: adapt docstring from make_app (whic
 
         """
         for initializer in self.settings.get('bundles', []):
-            print 'initializing', initializer
+            #print 'initializing', initializer
             if isinstance(initializer, basestring):
                 try:
                     initializer = import_attribute(initializer)
@@ -146,7 +151,7 @@ class ApplicationManager(object):    # TODO: adapt docstring from make_app (whic
 
     def __call__(self, environ, start_response):
         wsgi_app = self._compiled_wsgi_app
-        print 'wsgi_app', wsgi_app
+        #print 'wsgi_app', wsgi_app
         return wsgi_app(environ, start_response)
 
     @cached_property
@@ -201,8 +206,14 @@ class ApplicationManager(object):    # TODO: adapt docstring from make_app (whic
         outermost = self._innermost_wsgi_app
         for factory, args, kwargs in self.wsgi_stack:
             _tmp_get_name=lambda x: getattr(x, '__name__', type(x).__name__)
-            print 'wrapping', _tmp_get_name(outermost), 'in', _tmp_get_name(factory)
+            #print 'wrapping', _tmp_get_name(outermost), 'in', _tmp_get_name(factory)
             outermost = factory(outermost, *args, **kwargs)
+
+        # activate debugger
+        if self.settings.get('debug', False):
+            from werkzeug import DebuggedApplication
+            outermost = DebuggedApplication(outermost, evalex=True)
+
         return outermost
 
     def wrap_in(self, func, *args, **kwargs):
