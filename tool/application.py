@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 
+import os.path
+
 from werkzeug import Response, Request, responder, run_simple, cached_property
 from werkzeug.script import make_shell
 
 from tool import commands, conf, signals
 from tool.context_locals import context
 from tool.importing import import_attribute
-from tool.routing import find_urls, Map, Submount
+from tool.routing import find_urls, Map, Rule, Submount
 
 
 __all__ = ['ApplicationManager']
@@ -91,6 +93,65 @@ class ApplicationManager(object):    # TODO: adapt docstring from make_app (whic
         if isinstance(settings, basestring):
             return conf.load(settings)
         raise TypeError('expected None, dict or string, got %s' % settings)
+
+    def add_files(self, path, rule=None, endpoint=None):
+        """
+        Exposes all files in given directory using given rule. By default all
+        files (recursively) are made available with prefix `/media/`.
+
+        The simplest example::
+
+            app.add_files('pictures')
+
+        If you have a file `pictures/image123.jpg`, it will be accessible at
+        the URL `http://localhost:6060/media/image123.jpg`.
+
+        To specify custom URLs (especially if you are adding multiple
+        directories) provide the relevant rules, e.g.::
+
+            app.add_files('pictures', '/images')  # /images/image123.jpg
+            app.add_files('docs', '/text')        # /text/report456.pdf
+
+        The path to directory can be either absolute or relative to the
+        project.
+
+        To build a URL, type::
+
+            app.urls.build('media:pictures', {'file': 'image123.jpg')
+
+        (The `media:` prefix is added automatically; if will not be present if
+        you specify custom `endpoint` param or if the innermost directory in
+        the path is named "media".)
+
+        """
+
+        innermost_dir = os.path.split(path)[-1].lstrip('./')
+
+        ## Serving the files
+
+        # generate rule (just take the innermost directory name and prefix it
+        # with "media" if it's not already named so)
+        if not rule:
+            template = u'/%s/' if innermost_dir == 'media' else u'/media/%s/'
+            rule = template % innermost_dir
+
+        # generate unique (and transparent) endpoint
+        if not endpoint:
+            template = u'%s' if innermost_dir == 'media' else u'media:%s'
+            endpoint = template % innermost_dir
+
+        # set up the middleware
+        from werkzeug import SharedDataMiddleware
+        self.wrap_in(SharedDataMiddleware, {rule: path+'/'})
+
+        ## Building the URL
+
+        # make sure we can build('media:endpoint', {'file':...})
+        if not '<file>' in rule:
+            rule = rule.rstrip('/') + '/<file>'
+
+        # add fake URL so that MapAdapter.build works as expected
+        self.add_urls([Rule(rule, endpoint=endpoint, build_only=True)])
 
     def add_urls(self, rules, submount=None):
         """
