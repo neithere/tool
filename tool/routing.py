@@ -11,7 +11,7 @@ Only Tool-related functions are documented here.
 import sys
 from werkzeug.routing import *
 from werkzeug import redirect
-from tool.context_locals import context
+from tool import context
 from tool.importing import import_module, import_whatever
 
 

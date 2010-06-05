@@ -9,7 +9,7 @@ few wrappers for easier coupling of these features with the Tool API.
 """
 
 from werkzeug import BaseResponse, Client
-from tool.context_locals import context
+from tool import context
 
 
 __all__ = ['client_factory', 'print_url_map']

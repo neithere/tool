@@ -3,5 +3,5 @@
 __all__ = ['ApplicationManager', 'context']
 __version__ = '0.1.0'
 
-from application import ApplicationManager
 from context_locals import context
+from application import ApplicationManager

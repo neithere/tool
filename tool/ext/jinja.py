@@ -15,7 +15,7 @@ from copy import deepcopy
 from functools import wraps
 from jinja2 import Environment, FileSystemLoader
 from werkzeug import Response
-from tool.context_locals import context
+from tool import context
 from tool.routing import url_for
 from tool import signals
 from tool.application import request_ready

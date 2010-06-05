@@ -28,7 +28,7 @@ More detailed documentation:
 from pymodels import get_storage
 import werkzeug.exceptions
 
-from tool.context_locals import context
+from tool import context
 
 
 __all__ = ['get_object_or_404', 'setup', 'storage']
@@ -52,10 +52,10 @@ class StorageProxy(object):
 
     ...which is just another way to write::
 
-        from tool.context_locals import context
+        from tool import context
 
         def some_view(request):
-            return Response(Page.query(context.models_db))
+            return Response(Page.query(context.pymodels_db))
     """
     def __getattr__(self, name):
         if not hasattr(context, 'pymodels_db'):
