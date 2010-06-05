@@ -25,7 +25,7 @@ Tool is a lightweight web/console framework. It is intended to:
 .. _PyModels: http://packages.python.org/pymodels
 
 There is no such thing as a "Tool module" as opposed to mere "Python modules".
-And Python module can be plugged into a Tool project as long as that module
+Any Python module can be plugged into a Tool project as long as that module
 makes use of at least one of the basic external components, i.e. provides
 commands, fires or listens to signals, provides standard WSGI middleware,
 defines routing rules, etc. It is extremely easy to make an ordinary script or

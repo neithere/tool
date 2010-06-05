@@ -32,7 +32,11 @@ way like this::
 
     post_save = Signal()
 
-then you import the signal and declare a reciever (some function)::
+.. note:: on signal naming: think of the phrase "function is called on (signal
+    name)". Decent examples: "post_save", "app_ready". In most cases it's a
+    short description of an event that has just happened.
+
+Then you import the signal and declare a reciever (some function)::
 
     from xyz import post_save
 
@@ -41,7 +45,7 @@ then you import the signal and declare a reciever (some function)::
 
 Now you'll want to connect the receiver to the signal.
 
-If the signal is a :class:`Signal` instance, the reciever can be connected
+If the signal is a :class:`Signal` instance, the receiver can be connected
 using the signal method::
 
     post_save.connect(log_saving_event)
@@ -55,8 +59,6 @@ In most cases the :func:`called_on` decorator would be more suitable::
 Finally, you can use the generic PyDispatcher function :func:`connect` to
 achieve the same result::
 
-        def log_saving_event(**kwargs):
-            ...
         connect(log_saving_event, post_save)
 
 .. note:: no matter how exactly you define, connect and send signals, they do
