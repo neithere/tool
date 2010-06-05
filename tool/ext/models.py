@@ -26,7 +26,12 @@ More detailed documentation:
 """
 
 from pymodels import get_storage
+import werkzeug.exceptions
+
 from tool.context_locals import context
+
+
+__all__ = ['get_object_or_404', 'setup', 'storage']
 
 
 DEFAULTS = {
@@ -60,6 +65,17 @@ class StorageProxy(object):
 
 storage = StorageProxy()
 
+
+def get_object_or_404(model, **conditions):
+    """
+    Returns a PyModels model instance that
+    """
+    qs = model.objects(storage).where(**conditions)
+    if not qs:
+        raise werkzeug.exceptions.NotFound
+    if 1 < len(qs):
+        raise RuntimeError('multiple objects returned')
+    return qs[0]
 
 def setup(app):
     """
