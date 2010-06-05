@@ -11,12 +11,13 @@ from tool.importing import import_attribute
 from tool.routing import find_urls, Map, Rule, Submount
 
 
-__all__ = ['ApplicationManager']
+__all__ = ['ApplicationManager', 'request_ready', 'urls_bound', 'app_ready']
 
 
 # signals
-request_ready = 'request_ready'
-pre_bind_urls, post_bind_urls = 'pre_bind_urls', 'post_bind_urls'
+request_ready = signals.Signal()
+urls_bound    = signals.Signal()
+app_ready     = signals.Signal()
 
 
 class ApplicationManager(object):    # TODO: adapt docstring from make_app (which is commented out below) XXX
@@ -242,9 +243,8 @@ class ApplicationManager(object):    # TODO: adapt docstring from make_app (whic
             signals.send(request_ready, sender=context.request)
 
             # bind URLs
-            signals.send(pre_bind_urls, sender=self.url_map)
             self.urls = self.url_map.bind_to_environ(environ)
-            signals.send(post_bind_urls, sender=self.url_map)
+            signals.send(urls_bound, sender=self.urls)
 
             # determine current URL, find and call corresponding view function
             # another approach: http://stackoverflow.com/questions/1796063/werkzeug-mapping-urls-to-views-via-endpoint
@@ -279,6 +279,8 @@ class ApplicationManager(object):    # TODO: adapt docstring from make_app (whic
         if self.settings.get('debug', False):
             from werkzeug import DebuggedApplication
             outermost = DebuggedApplication(outermost, evalex=True)
+
+        signals.send(app_ready, sender=outermost)
 
         return outermost
 
