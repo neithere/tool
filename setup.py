@@ -2,12 +2,11 @@
 # -*- coding: utf-8 -*-
 
 from setuptools import setup, find_packages
-import tool
 
 
 setup(
     name = 'tool',
-    version = tool.__version__,
+    version = '0.1.0',
     packages = find_packages(),
 
     install_requires = [
@@ -16,6 +15,8 @@ setup(
         'pydispatcher >= 2.0.1', # signals
         'pyyaml >= 3.08',        # configuration
     ],
+    test_suite = 'nose.collector',
+    tests_require = ['coverage >= 3.3', 'nose >= 0.11'],
 
     # metadata for upload to PyPI
     author = 'Andrey Mikhaylenko',

@@ -6,3 +6,7 @@
 \.sw(n|o|p)$
 ^tmp_
 ^build/
+^dist/
+\.egg-info
+^\.coverage$
+^cover/
