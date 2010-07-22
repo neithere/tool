@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to tool's documentation!
+Welcome to Tool's documentation!
 ================================
 
 Tool is a lightweight web/console framework. It is intended to:
@@ -15,14 +15,14 @@ Tool is a lightweight web/console framework. It is intended to:
 * combine existing components: `Werkzeug`_ for request handling and routing,
   `PyDispatcher`_ for signals, `Opster`_ for commands;
 * let user choose non-critical components but ship with batteries included
-  (`Jinja`_ for templates, `PyModels`_ for modeling and more specialized
+  (`Jinja`_ for templates, `Docu`_ for modeling and more specialized
   extensions).
 
 .. _Werkzeug: http://werkzeug.pocoo.org
 .. _PyDispatcher: http://pypi.python.org/pypi/PyDispatcher/
 .. _Opster: http://pypi.python.org/pypi/opster
 .. _Jinja: http://jinja.pocoo.org/2/
-.. _PyModels: http://packages.python.org/pymodels
+.. _Docu: http://packages.python.org/docu
 
 There is no such thing as a "Tool module" as opposed to mere "Python modules".
 Any Python module can be plugged into a Tool project as long as that module
@@ -35,14 +35,14 @@ are already tons of such components. Oh, the joy of respecting the standards!
 Contents:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
    application
+   cli
    commands
    conf
    context_locals
    debug
-   importing
    routing
    signals
    ext
