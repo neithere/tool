@@ -1,29 +1,36 @@
 # -*- coding: utf-8 -*-
-
 """
-Shell commands. A thin wrapper around Opster_.
+Command-line interface
+======================
+
+Shell commands subsystem. A thin wrapper around Opster_.
 
 .. _Opster: http://pypi.python.org/pypi/opster
 
+Overview
+--------
+
 Basic usage::
 
-    from tool.commands import command, dispatch
+    from tool import cli
 
-    @command()
+    @cli.command()
     def foo():
         print 'bar'
 
     if __name__=='__main__':
-        dispatch()
+        cli.dispatch()
 
 You can call :meth:`tool.application.ApplicationManager.dispatch` instead of
 :func:`dispatch`, they are exactly the same.
 
 To register a command just wrap it in the :func:`command` decorator and import
 the module that contains the command before dispatching.
+
+API reference
+-------------
 """
 
 __all__ = ['command', 'dispatch']
 
 from opster import command, dispatch
-
