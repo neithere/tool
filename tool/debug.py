@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
 """
+Debugging utilities
+===================
+
 Werkzeug provides excellent `debugging features`_. This module only provides a
 few wrappers for easier coupling of these features with the Tool API.
 
@@ -13,6 +16,14 @@ from tool import context
 
 
 __all__ = ['client_factory', 'print_url_map']
+
+
+# http://stackoverflow.com/questions/287871/print-in-terminal-with-colors-using-python
+COLOR_BLUE = '\033[94m'
+COLOR_GREEN = '\033[92m'
+COLOR_WARNING = '\033[93m'
+COLOR_FAIL = '\033[91m'
+COLOR_ENDC = '\033[0m'
 
 
 def print_url_map(url_map):
@@ -31,12 +42,15 @@ def print_url_map(url_map):
         return
     max_len = max(len(unicode(rule)) for rule in url_map._rules)
     for rule in url_map._rules:
-        print '   %(rule)s %(padding)s %(endpoint)s %(arguments)s' % {
-            'rule': rule,
-            'padding': '.' * (max_len - len(unicode(rule)) + 2),
-            'endpoint': get_endpoint_repr(rule.endpoint),
-            'arguments': '(%s)'%', '.join(rule.arguments) if rule.arguments else '',
-        }
+        rule_label = ''.join([COLOR_BLUE, unicode(rule), COLOR_ENDC])
+        endpoint_repr = get_endpoint_repr(rule.endpoint)
+        endpoint_label = ''.join([COLOR_GREEN, endpoint_repr, COLOR_ENDC])
+        print '   {rule:.<{width}} {endpoint} {arguments}'.format(
+            rule = rule_label,
+            width = max_len + len(COLOR_BLUE+COLOR_ENDC) + 2,
+            endpoint = endpoint_label,
+            arguments = '({0})'.format(', '.join(rule.arguments)) if rule.arguments else '',
+        )
     print
 
 
