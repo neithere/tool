@@ -1,89 +1,74 @@
 # -*- coding: utf-8 -*-
 
 """
-Dispatching URLs is perfectly `managed by Werkzeug`_. This is a thin wrapper
-around Werkzeug's routing module. Please read the original reference elsewhere.
-Only Tool-related functions are documented here.
+URL routing
+===========
 
-.. _managed by Werkzeug: http://werkzeug.pocoo.org/documentation/dev/routing.html
+The whole task of defining and dispatching of URLs is perfectly managed by
+Werkzeug.
+
+Tool wraps Werkzeug's routing machinery and provides a few new convenience
+features:
+
+* decorator :func:`url`
+* function :func:`url_for`
+* function :func:`find_urls`
+* function :func:`redirect_to`
+
+All the rest is imported straight from Werkzeug.
+
+.. seealso::
+
+    this document represents all Tool-specific objects and a subset of
+    those available in Werkzeug. Please read the original `Werkzeug routing`_
+    reference for complete documentation.
+
+.. _Werkzeug routing: http://werkzeug.pocoo.org/documentation/dev/routing.html
+
+Overview
+--------
+
+In short, you should:
+
+1. create some "views" (functions to be called when the user requests URLs);
+2. create a :class:`Map` instance;
+3. add :class:`rules <Rule>` to the map so that URL patterns are linked to the
+   "views" (these views become "endpoints");
+4. Bind the map to environment (:class:`~tool.application.ApplicationManager`
+   will do that for you);
+5. trigger the dispatcher to define which endpoint corresponds to given URL.
+   This happens automatically if you create and run a WSGI application using
+   :class:`~tool.application.ApplicationManager`.
+
+It is also possible to build a URL when you know the endpoint and the keywords
+that make sense for certain rule. See :func:`url_for`.
+
+The easiest way to create rules for views is with decorator :func:`url`.
+
+The easiest way to gather a list of rules for all views defined in given module
+is with function :func:`find_urls`.
+
+See :doc:`application` for more details on how to build URL maps and include
+the rules into an application. It's always a good idea for a pluggable bundle
+to only define the rules, and for the application manager to actually gather
+them from different bundles and mount as needed.
+
+API reference
+-------------
 """
-
 import sys
 from werkzeug.routing import *
 from werkzeug import redirect
 from tool import context
 from tool.importing import import_module, import_whatever
 
+__all__ = [
+    # defined here
+    'url', 'url_for', 'find_urls', 'redirect_to',
+    # defined in werkzeug.routing
+    'Map', 'MapAdapter', 'Rule', 'Subdomain', 'Submount', 'redirect'
+]
 
-def url(string=None, **kw):
-    """
-    Decorator for web application views. Marks given function as bindable to
-    the given URL.
-
-    Basically it is equivalent to the decorator ``expose`` of CherryPy, however
-    we don't try to infer the rule from function signature; instead, we only
-    support the easiest case (URL is equal to function name) and require the
-    rule to be explicitly defined when the function accepts arguments.
-
-
-    Usage::
-
-        @url()                # rule not defined, inferred from function name
-        def index(request):
-            return 'hello'
-
-        @url('/index/')       # same rule, defined explicitly
-        def index(request):
-            return 'hello'
-
-        @url('/page/<int:page_id>/')
-        def page(request, page_id):     # extra args, rule is *required*
-            return 'page #%d' % page_id
-
-    The above is roughly same as::
-
-        def index(request):
-            return 'hello'
-        index.url_rules = [werkzeug.Rule('/index/', endpoint=index)]
-
-    ...and so on.
-
-    The ``url`` decorators can be chained so that the view function is
-    available under different URLs::
-
-        @url('/archive/')
-        @url('/archive/<int:year>/')
-        @url('/archive/<int:year>/<int:month>/')
-        def archive(request, **kwargs):
-            entries = Entry.objects(db).where(**kwargs)
-            return ', '.join(unicode(e) for e in entries)
-
-    """
-    def inner(view):
-        if 'endpoint' in kw:
-            raise NameError('Endpoint must not be defined explicitly when '
-                            'using the @url decorator.')
-        kw['endpoint'] = view    # = view.__name__
-
-        # infer URL from function name (only simple case without kwargs)
-        if not string and 1 < view.__code__.co_argcount:
-            raise ValueError('Routing rule must be specified in the @url '
-                             'decorator if the wrapped view function '
-                             'accepts more than one argument.')
-        kw['string'] = string or '/%s/' % view.__name__
-        view.url_rules = getattr(view, 'url_rules', [])
-        view.url_rules.append(Rule(**kw))
-        return view
-    return inner
-
-def url_for(endpoint, **kwargs):
-    try:
-        return context.app_manager.urls.build(endpoint, kwargs)
-    except BuildError:
-        if isinstance(endpoint, basestring):
-            # we store callable endpoints, so try importing
-            endpoint = import_whatever(endpoint)
-        return context.app_manager.urls.build(endpoint, kwargs)
 
 def find_urls(source):
     """
@@ -148,5 +133,89 @@ def find_urls(source):
     return list(generate(d))
 
 def redirect_to(endpoint, **kwargs):
+    """
+    A wrapper for :func:`redirect`. The difference is that the endpoint is
+    first resolved via :func:`url_for` and then passed to :func:`redirect`.
+    """
     url = url_for(endpoint, **kwargs)
     return redirect(url)
+
+def url(string=None, **kw):
+    """
+    Decorator for web application views. Marks given function as bindable to
+    the given URL.
+
+    Basically it is equivalent to the decorator ``expose`` of CherryPy, however
+    we don't try to infer the rule from function signature; instead, we only
+    support the easiest case (URL is equal to function name) and require the
+    rule to be explicitly defined when the function accepts arguments (apart
+    from the request object which is always the first argument).
+
+
+    Usage::
+
+        @url()                # rule not defined, inferred from function name
+        def index(request):
+            return 'hello'
+
+        @url('/index/')       # same rule, defined explicitly
+        def index(request):
+            return 'hello'
+
+        @url('/page/<int:page_id>/')
+        def page(request, page_id):     # extra args, rule is *required*
+            return 'page #%d' % page_id
+
+    The above is roughly same as::
+
+        def index(request):
+            return 'hello'
+        index.url_rules = [werkzeug.Rule('/index/', endpoint=index)]
+
+    ...and so on.
+
+    The ``url`` decorators can be chained so that the view function is
+    available under different URLs::
+
+        @url('/archive/')
+        @url('/archive/<int(4):year>/')
+        @url('/archive/<int(4):year>/<int(2):month>/')
+        def archive(request, **kwargs):
+            entries = Entry.objects(db).where(**kwargs)
+            return ', '.join(unicode(e) for e in entries)
+
+    """
+    def inner(view):
+        if 'endpoint' in kw:
+            raise NameError('Endpoint must not be defined explicitly when '
+                            'using the @url decorator.')
+        kw['endpoint'] = view    # = view.__name__
+
+        # infer URL from function name (only simple case without kwargs)
+        if not string and 1 < view.__code__.co_argcount:
+            raise ValueError('Routing rule must be specified in the @url '
+                             'decorator if the wrapped view function '
+                             'accepts more than one argument.')
+        kw['string'] = string or '/{0}/'.format(view.__name___)
+        view.url_rules = getattr(view, 'url_rules', [])
+        view.url_rules.append(Rule(**kw))
+        return view
+    return inner
+
+def url_for(endpoint, **kwargs):
+    """
+    Given the endpoint and keyword arguments, builds and returns the URL.
+
+    :param endpoint:
+        either a callable object, or a string representing the dotted path to
+        such object (e.g. ``myapp.views.list_entries``)
+
+    The keywords are passed to :meth:`MapAdapter.build`.
+    """
+    try:
+        return context.app_manager.urls.build(endpoint, kwargs)
+    except BuildError:
+        if isinstance(endpoint, basestring):
+            # we store callable endpoints, so try importing
+            endpoint = import_whatever(endpoint)
+        return context.app_manager.urls.build(endpoint, kwargs)
