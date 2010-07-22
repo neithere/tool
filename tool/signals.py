@@ -1,6 +1,11 @@
 # -*- coding: utf-8 -*-
-
 """
+Signals
+=======
+
+Overview
+--------
+
 The maintainability of a project largely depends on how loosely its components
 are coupled. The mechanism of signals allows different components to:
 
@@ -66,6 +71,8 @@ achieve the same result::
     receivers; any non-Tool signals can be subscribed to with Tool decorators.
     The only requirement is the PyDispatcher library.
 
+API reference
+-------------
 """
 
 from functools import wraps
@@ -135,14 +142,14 @@ def called_on(signal=Any, sender=Any, weak=True):
 
         @called_on(pre_save, SomeModel)
         def log_saving_event(**kwargs):
-            print '%(sender)s has been saved' % kwargs
+            print '{sender} has been saved'.format(**kwargs)
 
     This is semantically equivalent to::
 
         from tool.signals import connect
 
         def log_saving_event(**kwargs):
-            print '%(sender)s has been saved' % kwargs
+            print '{sender} has been saved'.format(**kwargs)
         connect(log_saving_event, pre_save, SomeModel)
 
     """
@@ -150,9 +157,3 @@ def called_on(signal=Any, sender=Any, weak=True):
         connect(receiver, signal=signal, sender=sender, weak=weak)
         return receiver
     return inner
-
-def connected(**kwargs):
-    import warnings
-    warnings.warn('"connected" decorator in deprecated, use "called_on" instead',
-                  DeprecationWarning)
-    return called_on(**kwargs)
