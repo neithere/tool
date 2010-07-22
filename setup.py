@@ -8,6 +8,9 @@ setup(
     name = 'tool',
     version = '0.1.0',
     packages = find_packages(),
+    package_data = {
+        'tool': ['ext/*/*/*.html'],
+    },
 
     install_requires = [
         'opster >= 0.9.9',       # console interface
@@ -17,6 +20,24 @@ setup(
     ],
     test_suite = 'nose.collector',
     tests_require = ['coverage >= 3.3', 'nose >= 0.11'],
+
+    # optional features
+    extras_require = {
+        'dark': ['dark >= 0.4.1'],
+        'docu': ['docu >= 0.22'],
+        'jinja': ['jinja2 >= 2.5'],
+        'unidecode': ['unidecode >= 0.04.1'],
+        'wtforms': ['wtforms >= 0.6'],
+    },
+    entry_points = {
+        'extensions': [
+            'admin = tool.ext.admin [docu, wtforms]',
+            'analysis = tool.ext.analysis [dark, docu, wtforms]',
+            'documents = tool.ext.documents [docu]',
+            'templating = tool.ext.templating [jinja]',
+            'slugify_i18n = tool.ext.strings:slugify_i18n [unidecode]',
+        ]
+    },
 
     # metadata for upload to PyPI
     author = 'Andrey Mikhaylenko',
