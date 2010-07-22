@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
 
 """
-Pagination utilities. Based on the Werkzeug tutorial.
+Pagination utilities
+====================
+
+:state: alpha
+:dependencies: none
+
+Based on the Werkzeug tutorial.
 """
 
 from werkzeug import cached_property, Href
@@ -9,7 +15,9 @@ from tool.routing import BuildError, url_for
 
 
 class Pagination(object):
-
+    """
+    TODO
+    """
     def __init__(self, query, per_page, page, endpoint):
         self.query = query
         self.per_page = int(per_page)
@@ -18,7 +26,7 @@ class Pagination(object):
 
     @cached_property
     def count(self):
-        return len(self.query)
+        return self.query.count()
 
     @cached_property
     def entries(self):
@@ -35,9 +43,10 @@ class Pagination(object):
             href = Href('.')    #url_for(self.endpoint))
             return href(page=page)
 
-
     has_previous = property(lambda x: x.page > 1)
     has_next = property(lambda x: x.page < x.pages)
     previous = property(lambda x: x._get_page_url(x.page - 1))
+    first = property(lambda x: x._get_page_url(1))
     next = property(lambda x: x._get_page_url(x.page + 1))
+    last = property(lambda x: x._get_page_url(x.pages))
     pages = property(lambda x: max(0, x.count - 1) // x.per_page + 1)
