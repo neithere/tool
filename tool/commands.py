@@ -14,11 +14,11 @@ from tool import cli
 from tool import context
 
 
-__all__ = ['run', 'shell']
+__all__ = ['serve', 'shell']
 
 
 @cli.command()
-def run(host=('h', 'localhost', 'host'), port=('p', 6060, 'port')):
+def serve(host=('h', 'localhost', 'host'), port=('p', 6060, 'port')):
     "Run development server for your application."
     run_simple(host, port, context.app)
 

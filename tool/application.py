@@ -55,7 +55,7 @@ API reference
 
 import os.path
 
-from werkzeug import Response, Request, responder, run_simple, cached_property
+from werkzeug import Response, Request, responder, cached_property
 from werkzeug.script import make_shell
 
 from tool import cli, conf, signals
@@ -109,13 +109,13 @@ class ApplicationManager(object):
     `app.py`, you can call it this way::
 
         $ ./app.py shell
-        $ ./app.py run
+        $ ./app.py serve
         $ ./app.py import-some-data
 
     All these commands are handled by :meth:`~ApplicationManager.dispatch`.
-    Commands `shell` and `run` are added by Tool (see :doc:`commands`, command
-    `help` is added by `opster` and all other commands are registered elsewhere
-    (e.g. in bundles). See :doc:`cli` for details.
+    Commands `shell` and `serve` are added by Tool (see :doc:`commands`,
+    command `help` is added by `opster` and all other commands are registered
+    elsewhere (e.g. in bundles). See :doc:`cli` for details.
 
     The URLs map can be defined using :meth:`~ApplicationManager.add_urls`
     and/or by providing the pre-composed map::
@@ -342,15 +342,18 @@ class ApplicationManager(object):
         If the bundle needs to be initialized in some way, it can simply
         subscribe to signals provided by Tool, e.g.::
 
-            from tool.application import manager_ready
+            from tool.application import app_manager_ready
             from tool.signals import called_on
 
-            @called_on(manager_ready)
+            @called_on(app_manager_ready)
             def init_bundle(sender, **kwargs):
-                app_manager = sender
-                conf = app_manager.settings.get('foo_conf', 'bar')
+                conf = sender.get_settings_for_bundle(__name__)
                 app_manager.foo = Foo(conf)    # or better modify the `context`
 
+        The function `init_bundle` in the example above will be called by an
+        ApplicationManager instance when it's ready; the function will receive
+        the ApplicationManager instance as `sender`. The initializer configures
+        itself via :meth:`ApplicationManager.get_settings_for_bundle`.
         """
         for bundle in self.settings.get('bundles', []):
             assert isinstance(bundle, basestring), (
