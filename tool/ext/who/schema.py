@@ -13,6 +13,11 @@ from docu import *
 
 #@with_admin(namespace='auth')
 class User(Document):
+    """
+    Represents a user. You can extend this class in whatever way you need, just
+    keep in mind that :meth:`User.set_password` and :meth:`User.check_password`
+    are essential for correct authentication.
+    """
     username = Field(unicode, required=True)
     password = Field(unicode, required=True)
 
