@@ -22,11 +22,10 @@
     <p style="float: right;">
         <a href="{{ url_for('tool.ext.admin.object_detail',
                             namespace=namespace,
-                            model_name=query.model.__name__) }}">Add {{ query.model.meta.label }}</a>
+                            model_name=query.model.__name__) }}">Add {{ query.model.meta.get_label() }}</a>
     </p>
 
-    <p>{{ pagination }} &mdash;
-       {{ query.count() }} {{ query.model.meta.label }}s</p>
+    <p>{{ query.count() }} {{ query.model.meta.get_label_plural() }}</p>
 
   <div class="pagination" style="overflow: hidden;">
     <div style="float: left">
@@ -55,12 +54,21 @@
     </div>
   </div>
 
+    {% if search_enabled %}
+    <div>
+    <form action="." method="GET">
+        <input type="text" name="q" value=""/>
+        <input type="submit" value="Search"/>
+    </form>
+    </div>
+    {% endif %}
+
     <table style="width:100%">
         <tr>
             {# TODO: make a simple table manager to handle all this stuff in Python #}
             {% for list_name in list_names %}
                 {% if list_name == '__unicode__' %}
-                    <th>{{ query.model.meta.label.capitalize() }}</th>
+                    <th>{{ query.model.meta.get_label().capitalize() }}</th>
                 {% else %}
                     <th>
                         {# TODO: remove the hacks, implement sorting properly #}

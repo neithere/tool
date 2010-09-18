@@ -85,6 +85,19 @@
     <input type="submit" name="DELETE" value="Delete"/>
 </form>
 
+<div>
+    <h2>Open as…</h2>
+
+    {% for ns, types in other_doc_types.iteritems() %}
+        <p>{{ ns }}: 
+        {% for doc_type in types %}
+            <a href="{{ url_for('tool.ext.admin.object_detail', namespace=ns,
+                                model_name=doc_type, pk=object.pk) }}">{{ doc_type }}</a>
+        {% endfor %}
+        </p>
+    {% endfor %}
+</div>
+
 {% for model, attrs in references.iteritems() %}
     <div style="padding: 1em 2ex; background: #eee;">
         <h2>{{ model.meta.label_plural.capitalize() }}</h2>

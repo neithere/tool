@@ -2,6 +2,7 @@
 
 from functools import wraps
 from werkzeug import Response
+import wtforms
 from tool import context
 from tool.routing import url, url_for, BuildError, redirect_to
 from tool.signals import called_on
@@ -11,10 +12,11 @@ from tool.ext.pagination import Pagination
 from tool.ext.breadcrumbs import entitled
 
 
-# FIXME STUBS!!!!
-login_required = lambda f: f
+# FIXME use proper authorization instead of just authentication!
+from tool.ext.who import requires_auth
 
-#from glasnaegel.bundles.auth import setup_auth, login_required
+from docu import Document
+import docu.validators
 from docu.ext.forms import document_form_factory
 
 
@@ -27,9 +29,10 @@ _urls_for_models = {}
 _excluded_names = {}
 _ordering = {}
 _list_names = {}
+_search_names = {}
 
 def register(model, namespace=DEFAULT_NAMESPACE, url=None, exclude=None, ordering=None,
-             list_names=None):
+             list_names=None, search_names=None):
     """
     :param model:
         a Docu document class
@@ -42,6 +45,8 @@ def register(model, namespace=DEFAULT_NAMESPACE, url=None, exclude=None, orderin
         See Docu query API for details on ordering.
     :param list_names:
         a list of field names to be displayed in the list view.
+    :param search_names:
+        a list of field names by which to search.
 
     Usage::
 
@@ -60,6 +65,7 @@ def register(model, namespace=DEFAULT_NAMESPACE, url=None, exclude=None, orderin
     _excluded_names[model] = exclude
     _ordering[model] = ordering
     _list_names[model] = list_names
+    _search_names[model] = search_names
     return model
 
 
@@ -73,6 +79,7 @@ class DocAdmin(object):
     order_by = None
     ordering_reversed = False
     list_names = None
+    search_names = None
 
     @classmethod
     def register_for(cls, doc_class):
@@ -86,6 +93,7 @@ class DocAdmin(object):
             exclude = cls.exclude,
             ordering = ordering,
             list_names = cls.list_names,
+            search_names = cls.search_names,
         )
 
 
@@ -174,7 +182,7 @@ def _get_url_for_object(obj):
 #-- VIEWS ------------------------------------------------------------------
 
 @url('/')
-@login_required
+@requires_auth
 @entitled(u'Admin site')
 @as_html('admin/index.html')
 def index(request):
@@ -183,7 +191,7 @@ def index(request):
     }
 
 @url('/<string:namespace>/')
-@login_required
+@requires_auth
 @entitled(lambda **kw: kw['namespace'])
 @as_html('admin/namespace.html')
 def namespace(request, namespace):
@@ -193,13 +201,29 @@ def namespace(request, namespace):
     }
 
 @url('/<string:namespace>/<string:model_name>/')
-@login_required
+@requires_auth
 @entitled(lambda **kw: _get_model(kw['namespace'], kw['model_name'])
-                       .meta.label_plural)
+                       .meta.get_label_plural())
 @as_html('admin/object_list.html')
 def object_list(request, namespace, model_name):
     model = _get_model(namespace, model_name)
     query = model.objects(db)
+
+    if 'q' in request.values:
+        value = request.values.get('q')
+        # TODO: move defs sanity check elsewhere (admin site function?)
+        field_names = _search_names[model]
+        if not field_names:
+            raise ValueError('Cannot search {0} objects: search fields are '
+                             'not defined'.format(model.__name__))
+        assert isinstance(field_names, (list, tuple))
+        # FIXME should be q.where(foo=q).or_where(bar=q)
+        # but Docu doesn't support OR at the moment
+        if 1 < len(field_names):
+            raise NotImplementedError('Multiple search fields are not yet '
+                                      'supported in this version.')
+        # TODO: pre-convert value?
+        query = query.where(**{'{0}__matches_caseless'.format(field_names[0]): value})
 
     ordering = _ordering.get(model)
     if 'sort_by' in request.values:
@@ -223,18 +247,25 @@ def object_list(request, namespace, model_name):
         #'objects': objects,
         'pagination': pagination,
         'list_names': list_names,
+        'search_enabled': bool(_search_names[model]),
     }
 
 @url('/<string:namespace>/<string:model_name>/<string:pk>')
 @url('/<string:namespace>/<string:model_name>/add')
-@login_required
-@entitled(lambda **kw: (u'Editing {0}' if 'pk' in kw else u'Adding {0}').format(
-    _get_model(kw['namespace'], kw['model_name']).meta.label))
+@requires_auth
+@entitled(lambda **kw: (u'{0} {1}').format(
+          u'Editing' if 'pk' in kw else 'Adding',
+          _get_model(kw['namespace'], kw['model_name']).meta.get_label()))
 @as_html('admin/object_detail.html')
 def object_detail(request, namespace, model_name, pk=None):
     model = _get_model(namespace, model_name)
     if pk:
-        obj = db.get(model, pk)
+        try:
+            obj = model.object(db, pk)
+        except docu.validators.ValidationError:
+            # Whoops, the data doesn't fit the schema. Let's try converting.
+            obj = Document.object(db, pk)
+            obj = obj.convert_to(model)
         creating = False
     else:
         obj = model()
@@ -248,6 +279,12 @@ def object_detail(request, namespace, model_name, pk=None):
                         model_name=model_name)
 
     DocumentForm = document_form_factory(model, db)
+
+    if not model.meta.structure:
+        for k in obj:
+            setattr(DocumentForm, k,
+                    wtforms.fields.TextField(k.title().replace('_',' ')))
+
     form = DocumentForm(request.form, obj)
 
     for name in _get_excluded_names(model):
@@ -289,4 +326,5 @@ def object_detail(request, namespace, model_name, pk=None):
         'form': form,
         'message': message,
         'references': references,
+        'other_doc_types': _registered_models,
     }

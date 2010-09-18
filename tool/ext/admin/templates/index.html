@@ -7,7 +7,12 @@
         <h2>&ldquo;{{ namespace.capitalize() }}&rdquo;</h2>
         <ul>
         {% for name, model in models.items() %}
-            <li><a href="{{ url_for('tool.ext.admin.object_list', namespace=namespace, model_name=name) }}">{{ model.__name__ }}</a></li>
+            <li><a href="{{ url_for('tool.ext.admin.object_list', 
+                                    namespace=namespace, model_name=name)}}">
+                {{ model.__name__ }}</a>&nbsp;<a href="{{ url_for('tool.ext.admin.object_detail',
+                                                                  namespace=namespace,
+                                                                  model_name=name) }}">+</a>
+            </li>
         {% endfor %}
         </ul>
     </div>

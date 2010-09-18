@@ -25,7 +25,6 @@ import os
 from tool import dist
 dist.check_dependencies(__name__)
 
-#from tool.application import app_manager_ready
 from tool import context
 from tool import routing
 from tool.ext.templating import register_templates
