@@ -2,11 +2,12 @@
 # -*- coding: utf-8 -*-
 
 from setuptools import setup, find_packages
+from _version import version
 
 
 setup(
     name = 'tool',
-    version = '0.1.0',
+    version = version,
     packages = find_packages(),
     package_data = {
         'tool': ['ext/*/*/*.html'],
@@ -26,6 +27,7 @@ setup(
         'dark': ['dark >= 0.4.1'],
         'docu': ['docu >= 0.22'],
         'jinja': ['jinja2 >= 2.5'],
+        'repoze.who': ['repoze.who >= 2.0a2'],
         'unidecode': ['unidecode >= 0.04.1'],
         'wtforms': ['wtforms >= 0.6'],
     },
@@ -36,6 +38,7 @@ setup(
             'documents = tool.ext.documents [docu]',
             'templating = tool.ext.templating [jinja]',
             'slugify_i18n = tool.ext.strings:slugify_i18n [unidecode]',
+            'who = tool.ext.who [repoze.who]',
         ]
     },
 

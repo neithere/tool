@@ -23,11 +23,11 @@ Below is the full list of extensions bundled with Tool:
 
    ext_admin
    ext_analysis
-   ext_auth
    ext_documents
    ext_pagination
    ext_strings
    ext_templating
+   ext_who
 
 .. note:: Most extensions depend on external libraries. For example,
     `tool.ext.jinja` requires that a certain version of Jinja2 is installed.

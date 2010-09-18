@@ -85,6 +85,9 @@ repoze.who middleware documentation (as keywords) and stored in the module
 API reference
 -------------
 """
+from tool import dist
+dist.check_dependencies(__name__)
+
 
 # 3rd-party
 from repoze.who.middleware import PluggableAuthenticationMiddleware
