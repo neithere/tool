@@ -15,15 +15,18 @@ from werkzeug import BaseResponse, Client
 from tool import context
 
 
-__all__ = ['client_factory', 'print_url_map']
+__all__ = ['client_factory', 'print_url_map', 'print_wsgi_stack']
 
 
 # http://stackoverflow.com/questions/287871/print-in-terminal-with-colors-using-python
-COLOR_BLUE = '\033[94m'
-COLOR_GREEN = '\033[92m'
-COLOR_WARNING = '\033[93m'
-COLOR_FAIL = '\033[91m'
-COLOR_ENDC = '\033[0m'
+COLOR_BLUE   = '\033[94m'
+COLOR_GREEN  = '\033[92m'
+COLOR_YELLOW = '\033[93m'
+COLOR_RED    = '\033[91m'
+COLOR_ENDC   = '\033[0m'
+
+COLOR_WARNING = COLOR_YELLOW
+COLOR_FAIL    = COLOR_RED
 
 
 def print_url_map(url_map):
@@ -51,6 +54,32 @@ def print_url_map(url_map):
             endpoint = endpoint_label,
             arguments = '({0})'.format(', '.join(rule.arguments)) if rule.arguments else '',
         )
+    print
+
+def print_wsgi_stack(stack):
+    """
+    Pretty-prints an :class:`~tool.ApplicationManager` instance's current WSGI
+    stack. The list of middleware is printed in the order in which the
+    request/dispatch/response flow actually goes, i.e. ingress (shown in
+    green), URL/view routing (yellow) and egress (blue). The completeness of
+    the list depends on how early the function is called.
+
+    Usage::
+
+        app_manager = tool.ApplicationManager()
+        app_manager.wrap_in(YourFavouriteMiddleware)
+        print_wsgi_stack(app_manager.wsgi_stack)
+
+    """
+    print 'The WSGI stack:'
+    ingress = True
+    for i, item in enumerate(stack + [None] + list(reversed(stack))):
+        if item:
+            color = (COLOR_GREEN if ingress else COLOR_BLUE)
+            print(' ↳ '+  color + item[0].__name__ + COLOR_ENDC)
+        else:
+            ingress = False
+            print(' ↳ '+ COLOR_YELLOW +'URL/view routing (Tool core)'+ COLOR_ENDC)
     print
 
 
