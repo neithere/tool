@@ -4,12 +4,12 @@ Data Analysis
 =============
 
 :state: alpha (demo)
-:dependencies: Docu_, Dark_
+:dependencies: Doqu_, Dark_
 
 Web interface for Data Analysis and Reporting Kit (`Dark`_).
 Requires :mod:`tool.ext.documents` to be properly set up.
 
-.. _Docu: http://pypi.python.org/pypi/docu
+.. _Doqu: http://pypi.python.org/pypi/doqu
 .. _Dark: http://pypi.python.org/pypi/dark
 
 .. note::
@@ -29,17 +29,20 @@ Requires :mod:`tool.ext.documents` to be properly set up.
 from tool import dist
 dist.check_dependencies(__name__)
 
-from tool.routing import url, BuildError, redirect_to
+from tool.routing import url, redirect_to
+from tool.plugins import BasePlugin
 from werkzeug import Response
 import wtforms
 from tool.ext.templating import as_html, register_templates
-from tool.ext.documents import db
-from docu import Document
+from tool.ext.documents import default_storage
+from doqu import Document
 import dark
 from dark.aggregates import *
 
 
-register_templates(__name__)
+class DarkPlugin(BasePlugin):
+    def make_env(self):
+        register_templates(__name__)
 
 
 # FIXME STUBS!!!!
@@ -69,7 +72,7 @@ class CastForm(wtforms.Form):
 @login_required
 @as_html('analysis/report.html')
 def report(request):
-    query = Document.objects(db)  # TODO: only docs registered with admin?
+    query = Document.objects(default_storage())  # TODO: only docs registered with admin?
     form = CastForm(request.form)
     factors = []
     pivot_factors = []

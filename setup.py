@@ -14,8 +14,7 @@ setup(
     },
 
     install_requires = [
-        'opster >= 0.9.9',       # console interface
-        'werkzeug >= 0.6',       # web interface
+        'argh >= 0.2.0',         # console interface
         'pydispatcher >= 2.0.1', # signals
         'pyyaml >= 3.08',        # configuration
     ],
@@ -24,34 +23,37 @@ setup(
 
     # optional features
     extras_require = {
-        'dark': ['dark >= 0.4.1'],
-        'docu': ['docu >= 0.22'],
+        'dark': ['dark >= 0.7'],
+        'doqu': ['doqu >= 0.25'],
         'jinja': ['jinja2 >= 2.5'],
-        'repoze.who': ['repoze.who >= 2.0a2'],
+        'repoze.who': ['repoze.who >= 1.0'], #2.0a2'],
+        'repoze.what': ['repoze.what >= 1.0'],
         'unidecode': ['unidecode >= 0.04.1'],
+        'werkzeug': ['werkzeug >= 0.6'],       # web interface
         'wtforms': ['wtforms >= 0.6'],
+        'colorama': ['colorama >= 0.1.18'],    # CLI colors
     },
     entry_points = {
         'extensions': [
-            'admin = tool.ext.admin [docu, wtforms]',
-            'analysis = tool.ext.analysis [dark, docu, wtforms]',
-            'documents = tool.ext.documents [docu]',
+            'admin = tool.ext.admin [doqu, wtforms]',
+            'analysis = tool.ext.analysis [dark, doqu, wtforms]',
+            'documents = tool.ext.documents [doqu]',
             'templating = tool.ext.templating [jinja]',
             'slugify_i18n = tool.ext.strings:slugify_i18n [unidecode]',
             'who = tool.ext.who [repoze.who]',
+            'what = tool.ext.what [repoze.what]',
         ]
     },
 
     # metadata for upload to PyPI
     author = 'Andrey Mikhaylenko',
     author_email = 'andy@neithere.net',
-    description = 'A compact modular web/console framework.',
-    long_description='A compact modular web/console framework. Based on '
-                     'Werkzeug+Pydispatcher+Opster.',
+    description = 'A compact modular conf/web/console framework.',
+    long_description='A compact modular conf/web/console framework.',
     license = 'GPL3',
     keywords = 'wsgi web framework',
     classifiers = [
-        'Development Status :: 2 - Pre-Alpha',
+        'Development Status :: 3 - Alpha',
         'Environment :: Console',
         'Environment :: Web Environment',
         'Intended Audience :: Developers',

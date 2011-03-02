@@ -1,0 +1,41 @@
+debug: true
+
+extensions:
+
+    blog.Blog:
+        null
+
+    tool.ext.staticfiles.StaticFiles:
+        media:
+            rule: /media/
+
+    tool.ext.shell.Shell:
+        null
+
+    tool.ext.http.Server:
+        null
+
+    tool.ext.werkzeug_routing.Routing:
+        tool.ext.admin.views: /admin/
+        blog.views:           /
+
+    tool.ext.admin.AdminWeb:
+        null
+
+    tool.ext.who.AuthenticationPlugin:
+        preset: basic
+        secret: k2bnyt89dsih29
+
+    tool.ext.documents.Documents:
+        default:
+            backend: doqu.ext.shelve_db
+            path: blog.db
+
+    # Comment out Jinja and uncomment Mako to swap the templating engine. All
+    # dependent plugins will work as usual because the templating plugin
+    # exposes a uniform API for all supported engines.
+    tool.ext.templating.JinjaPlugin: null
+    #tool.ext.templating.MakoPlugin: null
+
+    tool.ext.breadcrumbs.BreadcrumbsPlugin:
+        null

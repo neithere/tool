@@ -1,218 +1,100 @@
 # -*- coding: utf-8 -*-
 
-from functools import wraps
+#
+# TODO
+#
+# Refactor this module. The environment should be stored in plugin instance.
+#
+
 from werkzeug import Response
 import wtforms
-from tool import context
-from tool.routing import url, url_for, BuildError, redirect_to
+from tool import app
+from tool.routing import url, url_for, redirect_to
 from tool.signals import called_on
-from tool.ext.templating import as_html, templating_ready
-from tool.ext.documents import db
+from tool.ext.templating import as_html
+from tool.ext.documents import default_storage
 from tool.ext.pagination import Pagination
 from tool.ext.breadcrumbs import entitled
 
 
-# FIXME use proper authorization instead of just authentication!
-from tool.ext.who import requires_auth
+#from tool.ext.who import requires_auth
+from tool.ext.what import require, is_admin
+#from repoze.what.predicates import not_anonymous, in_group
 
-from docu import Document
-import docu.validators
-from docu.ext.forms import document_form_factory
+from doqu import Document
+import doqu.validators
+from doqu.ext.forms import document_form_factory
 
 
-DEFAULT_NAMESPACE = 'main'
-
+def env(name):
+    "Returns plugin environment variable of given name."
+    plugin = app.get_feature('admin')
+    return plugin.env[name]
 
 # TODO: use tool.context?
-_registered_models = {}
-_urls_for_models = {}
-_excluded_names = {}
-_ordering = {}
-_list_names = {}
-_search_names = {}
-
-def register(model, namespace=DEFAULT_NAMESPACE, url=None, exclude=None, ordering=None,
-             list_names=None, search_names=None):
-    """
-    :param model:
-        a Docu document class
-    :param namespace:
-        a short string that will be part of the URL. Default is "main".
-    :param url:
-        a function that gets a model instance and returns an URL
-    :param ordering:
-        a dictionary in this form: ``{'names': ['foo'], 'reverse': False}``.
-        See Docu query API for details on ordering.
-    :param list_names:
-        a list of field names to be displayed in the list view.
-    :param search_names:
-        a list of field names by which to search.
-
-    Usage::
-
-        from docu import Document
-        from tool.ext import admin
-
-        class Item(Document):
-            ...
-        admin.register(Item)
-
-    """
-    # TODO: model should provide a slugified version of its name itself
-    name = model.__name__ #.lower()
-    _registered_models.setdefault(namespace, {})[name] = model
-    _urls_for_models[model] = url
-    _excluded_names[model] = exclude
-    _ordering[model] = ordering
-    _list_names[model] = list_names
-    _search_names[model] = search_names
-    return model
-
-
-class DocAdmin(object):
-    """
-    Description of admin interface for given Document class.
-    """
-    namespace = DEFAULT_NAMESPACE
-    url = None
-    exclude = None
-    order_by = None
-    ordering_reversed = False
-    list_names = None
-    search_names = None
-
-    @classmethod
-    def register_for(cls, doc_class):
-        if cls.order_by:
-            ordering = dict(names=cls.order_by, reverse=cls.ordering_reversed)
-        else:
-            ordering = None
-        register(doc_class,
-            namespace = cls.namespace,
-            url = cls.url,
-            exclude = cls.exclude,
-            ordering = ordering,
-            list_names = cls.list_names,
-            search_names = cls.search_names,
-        )
-
-
-def register_for(doc_class):
-    """
-    Decorator for DocAdmin classes. Usage::
-
-        @admin.register_for(Note)
-        class NoteAdmin(admin.DocAdmin):
-            namespace = 'notepad'
-            url = lambda d: d.get_url()
-            exclude = ['foo']
-            ordering = {'names': ['date_time'], 'reverse': True}
-
-    """
-    @wraps(doc_class)
-    def inner(admin_class):
-        admin_class.register_for(doc_class)
-        return admin_class
-    return inner
-
-
-def admin_url_for_query(query, namespace=DEFAULT_NAMESPACE):
-    """
-    Returns admin URL for given document query. Usage (in templates)::
-
-        <a href="{{ admin_url_for_query(object_list) }}">View in admin</a>
-
-    :param query:
-        A docu query adapter instance. The related document class must be
-        already registered with admin.
-    :param namespace:
-        The admin namespace (optional).
-
-    """
-    model_name = query.model.__name__
-    return url_for('tool.ext.admin.views.object_list',
-                   namespace=namespace, model_name=model_name)
-
-def admin_url_for(obj, namespace=DEFAULT_NAMESPACE):
-    """
-    Returns admin URL for given object. Usage (in templates)::
-
-        <a href="{{ admin_url_for(obj) }}">View {{ obj.title }} in admin</a>
-
-    :param obj:
-        A docu.Document instance. Must have the primary key. The document class
-        must be already registered with admin.
-    :param namespace:
-        The admin namespace (optional).
-
-    """
-    model_name = obj.__class__.__name__
-    return url_for('tool.ext.admin.views.object_detail',
-                   namespace=namespace, model_name=model_name, pk=obj.pk)
-
-@called_on(templating_ready)
-def setup_templating(**kwargs):
-    context.templating_env.globals.update(
-        admin_url_for = admin_url_for,
-        admin_url_for_query = admin_url_for_query,
-    )
-
+#_registered_models = {}
+#_urls_for_models = {}
+#_excluded_names = {}
+#_ordering = {}
+#_list_names = {}
+#_search_names = {}
 def _get_model(namespace, name):
-    if namespace not in _registered_models:
+    if namespace not in env('registered_models'):
         raise NameError('There is no registered namespace "%s"' % namespace)
     try:
-        return _registered_models[namespace][name]
+        return env('registered_models')[namespace][name]
     except KeyError:
         raise NameError('"%s" is not a registered model in namespace %s.' %
                         (name, namespace))
 
 def _get_excluded_names(model):
-    return _excluded_names[model] or []
+    return env('excluded_names')[model] or []
 
 def _get_url_for_object(obj):
     if not obj.pk:
         return
     model = type(obj)
-    f = _urls_for_models[model]
+    f = env('urls_for_models')[model]
     try:
         return f(obj) if f else None
-    except BuildError:
+    except:  # FIXME here was BuildError from Werkzeug
         return None
 
 #-- VIEWS ------------------------------------------------------------------
 
 @url('/')
-@requires_auth
+@require(is_admin())
 @entitled(u'Admin site')
 @as_html('admin/index.html')
 def index(request):
     return {
-        'namespaces': _registered_models,
+        'namespaces': env('registered_models'),
     }
 
 @url('/<string:namespace>/')
-@requires_auth
+@require(is_admin())
 @entitled(lambda **kw: kw['namespace'])
 @as_html('admin/namespace.html')
 def namespace(request, namespace):
     return {
         'namespace': namespace,
-        'models': _registered_models[namespace],
+        'models': env('registered_models')[namespace],
     }
 
 @url('/<string:namespace>/<string:model_name>/')
-@requires_auth
+@require(is_admin())
 @entitled(lambda **kw: _get_model(kw['namespace'], kw['model_name'])
                        .meta.get_label_plural())
 @as_html('admin/object_list.html')
 def object_list(request, namespace, model_name):
+    db = default_storage()
     model = _get_model(namespace, model_name)
     query = model.objects(db)
 
     if 'q' in request.values:
         value = request.values.get('q')
         # TODO: move defs sanity check elsewhere (admin site function?)
-        field_names = _search_names[model]
+        field_names = env('search_names')[model]
         if not field_names:
             raise ValueError('Cannot search {0} objects: search fields are '
                              'not defined'.format(model.__name__))
@@ -225,7 +107,7 @@ def object_list(request, namespace, model_name):
         # TODO: pre-convert value?
         query = query.where(**{'{0}__matches_caseless'.format(field_names[0]): value})
 
-    ordering = _ordering.get(model)
+    ordering = env('ordering').get(model)
     if 'sort_by' in request.values:
         sort_field = request.values.get('sort_by')
         sort_reverse = bool(request.values.get('sort_reverse', False))
@@ -237,9 +119,12 @@ def object_list(request, namespace, model_name):
     #objects, pagination = paginated(query, req, pagin_args)
     page = request.values.get('page', 1)
     per_page = request.values.get('per_page', 20)
-    pagination = Pagination(query, per_page, page, 'tool.ext.admin.object_list')
+    pagination = Pagination(query, per_page, page,
+                            'tool.ext.admin.views.object_list',
+                            namespace=namespace,
+                            model_name=model_name)
 
-    list_names = _list_names[model] or ['__unicode__']
+    list_names = env('list_names')[model] or ['__unicode__']
 
     return {
         'namespace': namespace,
@@ -247,24 +132,25 @@ def object_list(request, namespace, model_name):
         #'objects': objects,
         'pagination': pagination,
         'list_names': list_names,
-        'search_enabled': bool(_search_names[model]),
+        'search_enabled': bool(env('search_names')[model]),
     }
 
 @url('/<string:namespace>/<string:model_name>/<string:pk>')
 @url('/<string:namespace>/<string:model_name>/add')
-@requires_auth
+@require(is_admin())
 @entitled(lambda **kw: (u'{0} {1}').format(
           u'Editing' if 'pk' in kw else 'Adding',
           _get_model(kw['namespace'], kw['model_name']).meta.get_label()))
 @as_html('admin/object_detail.html')
 def object_detail(request, namespace, model_name, pk=None):
+    db = default_storage()
     model = _get_model(namespace, model_name)
     if pk:
         try:
-            obj = model.object(db, pk)
-        except docu.validators.ValidationError:
+            obj = db.get(model, pk)
+        except doqu.validators.ValidationError:
             # Whoops, the data doesn't fit the schema. Let's try converting.
-            obj = Document.object(db, pk)
+            obj = db.get(Document, pk)
             obj = obj.convert_to(model)
         creating = False
     else:
@@ -275,7 +161,7 @@ def object_detail(request, namespace, model_name, pk=None):
         # TODO: confirmation screen.
         # List related objects, ask what to do with them (cascade/ignore/..)
         obj.delete()
-        return redirect_to('tool.ext.admin.object_list', namespace=namespace,
+        return redirect_to('tool.ext.admin.views.object_list', namespace=namespace,
                         model_name=model_name)
 
     DocumentForm = document_form_factory(model, db)
@@ -306,7 +192,7 @@ def object_detail(request, namespace, model_name, pk=None):
         # from ".../my_model/add/" to
         # to the editing URL ".../my_model/123/"
         # ...hmm, we *should* redirect even after editing an existing item
-        return redirect_to('tool.ext.admin.object_detail',
+        return redirect_to('tool.ext.admin.views.object_detail',
                            namespace=namespace, model_name=model_name,
                            pk=obj.pk)
     obj_url = _get_url_for_object(obj)
@@ -326,5 +212,5 @@ def object_detail(request, namespace, model_name, pk=None):
         'form': form,
         'message': message,
         'references': references,
-        'other_doc_types': _registered_models,
+        'other_doc_types': env('registered_models'),
     }

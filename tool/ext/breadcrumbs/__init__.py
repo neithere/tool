@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Breadcrumbs
 ===========
@@ -18,10 +19,15 @@ __all__ = ['entitled']
 
 
 from functools import wraps
+import logging
 import werkzeug
-from tool import context
+from tool import app
+from tool.context_locals import request
+from tool.plugins import BasePlugin
 from tool.signals import called_on
-from tool.ext.templating import templating_ready
+
+
+logger = logging.getLogger(__name__)
 
 
 BREADCRUMB_ATTR_NAME = 'breadcrumb'
@@ -55,12 +61,13 @@ def get_title(path=None):
         current URL is used (from context locals).
 
     """
-    assert context.app.urls, 'Application must be initialized'
+    routing = app.get_feature('routing')
+    assert routing.env['urls'], 'Application must be initialized'
     if path is None or path == '':
-        path = context.request.path
+        path = request.path
     assert isinstance(path, basestring)
     try:
-        func, kwargs = context.app.urls.match(path)
+        func, kwargs = routing.env['urls'].match(path)
     except werkzeug.exceptions.NotFound:
         return u'(ENDPOINT NOT FOUND)'
     except werkzeug.routing.RequestRedirect as e:
@@ -97,8 +104,8 @@ def get_trail_titles(path=None, with_root=True):
 
     """
     if path is None or path == '':
-        assert context.request, 'application must be initialized'
-        path = context.request.path
+        assert request, 'application must be initialized'
+        path = request.path
     assert isinstance(path, basestring)
     parts = path.rstrip('/').split('/')
     if path.endswith('/'):
@@ -110,12 +117,31 @@ def get_trail_titles(path=None, with_root=True):
         urls.pop(0)
     return [(url, get_title(url)) for url in urls]
 
+
+class BreadcrumbsPlugin(BasePlugin):
+    features = 'breadcrumbs'
+    requires = ('{templating}',)
+
+    def make_env(self):
+        # XXX it is assumed that Jinja2 is the templating engine. It should be
+        # possible to populate other engines' globals.
+        logger.debug('Contributing functions to the template environment...')
+        templating = app.get_feature('templating')
+        templating.update_template_context(dict(
+            get_breadcrumb_title = get_title,
+            get_breadcrumb_trail = get_trail_titles,
+        ))
+
+
+"""
 @called_on(templating_ready)
 def add_template_functions(sender, **kw):
     # XXX it is assumed that Jinja2 is the templating engine. It should be
     # possible to populate other engines' globals.
+    logger.debug('Contributing functions to the template environment...')
     env = sender
     env.globals.update(
         get_breadcrumb_title = get_title,
         get_breadcrumb_trail = get_trail_titles,
     )
+"""

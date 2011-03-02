@@ -11,18 +11,19 @@ Based on the Werkzeug tutorial.
 """
 
 from werkzeug import cached_property, Href
-from tool.routing import BuildError, url_for
+from tool.routing import url_for
 
 
 class Pagination(object):
     """
     TODO
     """
-    def __init__(self, query, per_page, page, endpoint):
+    def __init__(self, query, per_page, page, endpoint, **kwargs):
         self.query = query
         self.per_page = int(per_page)
         self.page = int(page)
         self.endpoint = endpoint
+        self.kwargs = kwargs
 
     @cached_property
     def count(self):
@@ -35,13 +36,13 @@ class Pagination(object):
         return self.query[offset:limit]
 
     def _get_page_url(self, page):
-        try:
+        url = url_for(self.endpoint, page=page, **self.kwargs)
+        if url:
             # page is a part of URL: /foo/page1/
-            return url_for(self.endpoint, page=page)
-        except BuildError:
+            return url
+        else:
             # page is just a param: /foo?page=x
-            href = Href('.')    #url_for(self.endpoint))
-            return href(page=page)
+            return Href('.')(page=page)
 
     has_previous = property(lambda x: x.page > 1)
     has_next = property(lambda x: x.page < x.pages)

@@ -1,2 +1,0 @@
-.. automodule:: tool.routing
-   :members:

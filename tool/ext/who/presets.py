@@ -16,21 +16,21 @@ from repoze.who.classifiers import default_challenge_decider
 from views import render_login_form
 
 
-def get_docu_plugin():
+def get_doqu_auth_plugin():
     # import postponed so this module can be safely imported by admin, etc.
     # without circular imports
-    from plugins import DocuPlugin
+    from who_plugins import DocuPlugin
     return DocuPlugin()
 
 def get_basic_auth_config_preset(**kwargs):
     basic_auth = BasicAuthPlugin('repoze.who')
-    docu_plugin = get_docu_plugin()
+    doqu_plugin = get_doqu_auth_plugin()
 
     return {
         'identifiers':       [('basic_auth', basic_auth)],
-        'authenticators':    [('docu', docu_plugin)],
+        'authenticators':    [('doqu', doqu_plugin)],
         'challengers':       [('basic_auth', basic_auth)],
-        'mdproviders':       [('docu', docu_plugin)],
+        'mdproviders':       [('doqu', doqu_plugin)],
         'classifier':        default_request_classifier,
         'challenge_decider': default_challenge_decider,
     }
@@ -48,14 +48,20 @@ def get_form_config_preset(**kwargs):
     form = FormPlugin('__do_login', rememberer_name='auth_tkt')
     form.classifications = { IIdentifier:['browser'],
                              IChallenger:['browser'] } # only for browser
-    docu_plugin = get_docu_plugin()
+    doqu_plugin = get_doqu_auth_plugin()
 
     return {
         'identifiers':       [('form', form), ('auth_tkt', auth_tkt)],
-        'authenticators':    [('docu', docu_plugin),   # no cookie yet
-                              ('auth_tkt', auth_tkt)], # cookie exists
+        'authenticators':    [('doqu', doqu_plugin),   # no cookie yet
+                            # TODO: this will work only in repoze.who 2.0+ but
+                            # it was incompatible with repoze.what at the
+                            # moment of writing this comment, so the line below
+                            # is commented out until repoze.who 2.0+ can be
+                            # safely used:
+                            # ('auth_tkt', auth_tkt) # cookie exists
+                             ],
         'challengers':       [('form', form)],
-        'mdproviders':       [('docu', docu_plugin)],
+        'mdproviders':       [('doqu', doqu_plugin)],
         'classifier':        default_request_classifier,
         'challenge_decider': default_challenge_decider,
     }

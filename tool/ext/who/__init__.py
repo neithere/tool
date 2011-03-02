@@ -4,7 +4,7 @@ Authentication and identification
 =================================
 
 :state: beta
-:dependencies: Docu_, repoze.who_
+:dependencies: Doqu_, repoze.who_
 
 This bundle integrates Tool with repoze.who_, a powerful and extremely
 configurable identification and authentication framework.
@@ -22,7 +22,7 @@ The extension provides:
   application (the :func:`get_user` function).
 
 .. _repoze.who: http://docs.repoze.org/who/2.0/
-.. _Docu: http://pypi/python.org/pypi/docu
+.. _Doqu: http://pypi.python.org/pypi/doqu
 
 You can choose between two commonly used configuration presets. You can also
 safely ignore both and configure repoze.who as desired (see `custom_config`).
@@ -88,17 +88,18 @@ API reference
 from tool import dist
 dist.check_dependencies(__name__)
 
+import logging
+logger = logging.getLogger('tool.ext.who')
 
 # 3rd-party
 from repoze.who.middleware import PluggableAuthenticationMiddleware
 
 # tool
-from tool import context
 from tool.signals import called_on
-from tool.application import app_manager_ready
 from tool.importing import import_whatever
+from tool.plugins import BasePlugin
 #    FIXME let user configure databases per bundle:
-from tool.ext.documents import db
+from tool.ext.documents import storages, default_storage
 
 # this bundle
 from schema import User
@@ -111,12 +112,48 @@ from decorators import requires_auth
 __all__ = ['requires_auth', 'get_user', 'User']
 
 
-@called_on(app_manager_ready)
+class AuthenticationPlugin(BasePlugin):
+
+    features = 'authentication'
+    requires = ('{document_storage}',)
+
+    def make_env(self, **settings):
+        if 'secret' not in settings:
+            # TODO: add tool.conf.ConfigurationError excepton class
+            raise KeyError('Plugin {0} requires setting "secret"'.format(__name__))
+
+        db_label = settings.pop('database', None)
+        database = storages.get(db_label) or default_storage()
+
+        if settings.get('config'):
+            conf = import_whatever(settings['config'])
+            mw_conf = conf(**settings) if hasattr(conf, '__call__') else conf
+        else:
+            preset = settings.get('preset', 'basic')
+            f = KNOWN_PRESETS[preset]
+            mw_conf = f(**settings)
+
+        return {
+            'middleware_config': mw_conf,
+            'database': database,
+        }
+
+    def get_middleware(self):
+        kwargs = self.env['middleware_config']
+        logger.debug('who conf: {0}'.format(kwargs))
+        return [
+            (PluggableAuthenticationMiddleware, [], kwargs),
+        ]
+
+'''
+#@called_on(app_manager_ready)
 def setup_auth(sender, **kwargs):
     """
     Sets up a sensible default configuration for repoze.who middleware. Called
     automatically when the application manager is ready.
     """
+    logger.debug('Setting up the bundle...')
+
     bundle_conf = sender.get_settings_for_bundle(__name__)
 
     if 'secret' not in bundle_conf:
@@ -132,4 +169,4 @@ def setup_auth(sender, **kwargs):
         mw_conf = f(**bundle_conf)
 
     sender.wrap_in(PluggableAuthenticationMiddleware, **mw_conf)
-
+'''

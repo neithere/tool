@@ -57,10 +57,10 @@ API reference
 -------------
 """
 import sys
-from werkzeug.routing import *
-from werkzeug import redirect
-from tool import context
+from tool import app
+from tool.plugins import BasePlugin
 from tool.importing import import_module, import_whatever
+
 
 __all__ = [
     # defined here
@@ -70,77 +70,99 @@ __all__ = [
 ]
 
 
-def find_urls(source):
-    """
-    Accepts either module or dictionary.
+class BaseRoutingPlugin(BasePlugin):
 
-    Returns a cumulative list of rules for all members of given module or
-    dictionary.
+    features = 'routing'
 
-    How does this work? Any callable object can provide a list of rules as its
-    own attribute named ``url_rules``.  The ``url`` decorator adds such an
-    attribute to the wrapped object and sets the object as endpoint for rules
-    being added. ``find_urls``, however, does not care about endpoints, it
-    simply gathers rules scattered all over the place.
+    def compile_rule(self, string, **kwargs):
+        """Returns a list of native rule objects based on given view's
+        attribute `routing_rules` as populated by the :func:`~tool.routing.url`
+        decorator.
 
-    Usage::
+        Rules are not compiled there because at the moment when function is
+        being decorated it is usually not yet known which routing library is
+        going to be used.
+        """
+        raise NotImplementedError
 
-        from tool.routing import Map, Submount
-        import foo.views
+    def find_urls(self, source):
+        """
+        Accepts either module or dictionary.
 
-        # define a view exposed at given URL. Note that it is *not* a good idea
-        # to mix views with configuration and management code in real apps.
-        @url('/hello/')
-        def hello(request):
-            return 'Hello!'
+        Returns a cumulative list of rules for all members of given module or
+        dictionary.
 
-        # gather URLs from this module (yields the "hello" one)
-        local_urls = find_urls(locals())
+        How does this work? Any callable object can provide a list of rules as
+        its own attribute named ``url_rules``.  The ``url`` decorator adds such
+        an attribute to the wrapped object and sets the object as endpoint for
+        rules being added. ``find_urls``, however, does not care about
+        endpoints, it simply gathers rules scattered all over the place.
 
-        # gather URLs from some bundle's views module
-        foo_urls = find_urls(foo.views)
+        Usage::
 
-        # gather URLs from a module that is not imported yet
-        bar_urls = find_urls('bar.views')
+            from tool.routing import Map, Submount
+            import foo.views
 
-        url_map = Map(
-            local_urls + [
-                Submount('/foo/', foo_urls),
-                Submount('/bar/', bar_urls),
-            ]
-        )
+            # define a view exposed at given URL. Note that it is *not* a good idea
+            # to mix views with configuration and management code in real apps.
+            @url('/hello/')
+            def hello(request):
+                return 'Hello!'
 
-        # ...make app, etc.
+            # gather URLs from this module (yields the "hello" one)
+            local_urls = find_urls(locals())
 
-    Such approach does not impose any further conventions (such as where to
-    place the views) and leaves it up to you whether to store URL mappings and
-    views in separate modules or keep them together using the ``url``
-    decorator. It is considered good practice, however, to not mix different
-    things in the same module.
-    """
-    if isinstance(source, dict):
-        d = source
-    else:
-        if isinstance(source, basestring):
-            source = import_module(source)
-        d = dict((n, getattr(source, n)) for n in dir(source))
+            # gather URLs from some bundle's views module
+            foo_urls = find_urls(foo.views)
 
-    def generate(d):
-        for name, attr in d.iteritems():
-            if hasattr(attr, '__call__') and hasattr(attr, 'url_rules'):
-                for rule in attr.url_rules:
-                    yield rule
-    return list(generate(d))
+            # gather URLs from a module that is not imported yet
+            bar_urls = find_urls('bar.views')
+
+            url_map = Map(
+                local_urls + [
+                    Submount('/foo/', foo_urls),
+                    Submount('/bar/', bar_urls),
+                ]
+            )
+
+            # ...make app, etc.
+
+        Such approach does not impose any further conventions (such as where to
+        place the views) and leaves it up to you whether to store URL mappings
+        and views in separate modules or keep them together using the ``url``
+        decorator. It is considered good practice, however, to not mix
+        different things in the same module.
+        """
+        if isinstance(source, dict):
+            d = source
+        else:
+            if isinstance(source, basestring):
+                source = import_module(source)
+            d = dict((n, getattr(source, n)) for n in dir(source))
+
+        def generate(d):
+            for name, attr in d.iteritems():
+                if hasattr(attr, '__call__') and hasattr(attr, 'routing_rules'):
+                    for rule_draft in attr.routing_rules:
+                        yield self.compile_rule(**rule_draft)
+        return list(generate(d))
+
+    def redirect_to(self, endpoint):
+        raise NotImplementedError
+
+    def decorate_view(self, func, string, kwargs):
+        raise NotImplementedError
+
 
 def redirect_to(endpoint, **kwargs):
     """
     A wrapper for :func:`redirect`. The difference is that the endpoint is
     first resolved via :func:`url_for` and then passed to :func:`redirect`.
     """
-    url = url_for(endpoint, **kwargs)
-    return redirect(url)
+    plugin = app.get_feature(BaseRoutingPlugin.features)
+    return plugin.redirect_to(endpoint, **kwargs)
 
-def url(string=None, **kw):
+def url(string=None, **kwargs):
     """
     Decorator for web application views. Marks given function as bindable to
     the given URL.
@@ -185,20 +207,31 @@ def url(string=None, **kw):
             return ', '.join(unicode(e) for e in entries)
 
     """
-    def inner(view):
-        if 'endpoint' in kw:
-            raise NameError('Endpoint must not be defined explicitly when '
-                            'using the @url decorator.')
-        kw['endpoint'] = view    # = view.__name__
+#        if 'endpoint' in kw:
+#            raise NameError('Endpoint must not be defined explicitly when '
+#                            'using the @url decorator.')
+#        kw['endpoint'] = view    # = view.__name__
+#
+#        # infer URL from function name (only simple case without kwargs)
+#        if not string and 1 < view.__code__.co_argcount:
+#            raise ValueError('Routing rule must be specified in the @url '
+#                             'decorator if the wrapped view function '
+#                             'accepts more than one argument.')
+#        kw['string'] = string or '/{0}/'.format(view.__name___)
+#        view.url_rules = getattr(view, 'url_rules', [])
+#        view.url_rules.append(Rule(**kwargs))
+#        return view
 
+    def inner(view):
+        kwargs['endpoint'] = view    # = view.__name__
         # infer URL from function name (only simple case without kwargs)
         if not string and 1 < view.__code__.co_argcount:
             raise ValueError('Routing rule must be specified in the @url '
                              'decorator if the wrapped view function '
                              'accepts more than one argument.')
-        kw['string'] = string or '/{0}/'.format(view.__name___)
-        view.url_rules = getattr(view, 'url_rules', [])
-        view.url_rules.append(Rule(**kw))
+        kwargs['string'] = string or '/{0}/'.format(view.__name___)
+        view.routing_rules = getattr(view, 'routing_rules', [])
+        view.routing_rules.append(kwargs)
         return view
     return inner
 
@@ -212,10 +245,5 @@ def url_for(endpoint, **kwargs):
 
     The keywords are passed to :meth:`MapAdapter.build`.
     """
-    try:
-        return context.app_manager.urls.build(endpoint, kwargs)
-    except BuildError:
-        if isinstance(endpoint, basestring):
-            # we store callable endpoints, so try importing
-            endpoint = import_whatever(endpoint)
-        return context.app_manager.urls.build(endpoint, kwargs)
+    plugin = app.get_feature(BaseRoutingPlugin.features)
+    return plugin.url_for(endpoint, **kwargs)

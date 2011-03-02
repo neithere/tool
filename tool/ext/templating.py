@@ -1,21 +1,61 @@
 # -*- coding: utf-8 -*-
-
 """
 Template engine (Jinja2)
 ========================
 
 :state: stable
-:dependencies: `Jinja2`_
+:dependencies: `Jinja2`_ and/or `Mako`_
+:feature: `templating`
 
 .. _Jinja2: http://jinja.pocoo.org/2/
+.. _Mako: http://makotemplates.org
 
-Settings
---------
+This extension provides a uniform API for two popular templating engines:
 
-This bundle does not have to be explicitly loaded. Bundles that depend on
-`tool.ext.templating` will usually import it first. This is enough to trigger
-the setup hook. In any case, an empty configuration is fine. See sections below
-for details.
+* :class:`JinjaPlugin` for Jinja2_, and
+* :class:`MakoPlugin` for Mako_.
+
+You should configure one of them.
+
+Configuration
+-------------
+
+Typical configuration example (YAML)::
+
+    tool.ext.templating.JinjaPlugin: null
+
+This configuration preserves the default values. See section "Overriding
+templates" below for more information on configuration options.
+
+Of course you can replace :class:`JinjaPlugin` with :class:`MakoPlugin`.
+
+Usage
+-----
+
+Simple example (assuming that the code is in `my_extension/__init__.py`)::
+
+    from tool import app
+    from tool.plugins import BasePlugin
+
+    class Foo(BasePlugin):
+        def make_env(self):
+            t = app.get_feature('templating')
+            t.register_templates(__name__)
+
+In this case the absolute path to templates will be constructed from module
+location and the default name for template directory, i.e. something like
+`/path/to/my_extension/templates/`.
+
+The templates will be available as ``my_extension/template_name.html``.
+
+Advanced usage::
+
+    t.register_templates('proj.extension_foo', 'data/tmpl/', prefix='proj')
+
+In this case the absolute path to templates will be something like
+`/path/to/proj/extension_foo/data/tmpl/`.
+
+The templates will be available as ``proj/template_name.html``.
 
 Bundle templates
 ----------------
@@ -24,34 +64,34 @@ Bundle templates
 and loaded. Tool looks up the template in this order:
 
 * the project-level search paths (first full match wins);
-* the registered prefixes (i.e. the path starts with a known bundle name).
+* the registered prefixes (i.e. the path starts with a known extension name).
 
 The `prefixes` can be registered with :func:`register_templates`. For example,
-we have created a bundle with this layout::
+we have created an extension with this layout::
 
-    my_bundle/
+    my_extension/
         templates/
             foo.html
         __init__.py
 
 
-To register the bundle's templates, add this to its `__init__.py`::
+To register the extension's templates, add this to its `__init__.py`::
 
     from tool.ext.templating import register_templates
 
     register_templates(__name__)
 
-This will make our `foo.html` globally available as `my_bundle/foo.html`.
+This will make our `foo.html` globally available as `my_extension/foo.html`.
 
 There are other ways to register the templates. Please consult the code to find
 them out. Anyway, templates *must* be registered explicitly. Tool lets you
-organize the bundles the way you want and therefore expects that you tell what
+organize the extensions the way you want and therefore expects that you tell what
 is where.
 
 Overriding templates
 --------------------
 
-Web-oriented Tool bundles usually provide templates. Sometimes you'll want to
+Web-oriented Tool extensions usually provide templates. Sometimes you'll want to
 replace certain templates. Let's say we are not comfortable with a default
 :doc:`Admin <ext_admin>` template and want to override it. Let's create a
 project-level directory for templates and put our customized templates there::
@@ -70,8 +110,8 @@ As you see, the template path within `templates/` will be
 Now let's edit out `conf.yaml` and let the application know about the
 `templates/` directory::
 
-    bundles:
-        tool.ext.templating:
+    extensions:
+        tool.ext.templating.JinjaPlugin:
             searchpaths: ['templates']
 
 Well, actually this is the default setting. If `searchpaths` is not defined at
@@ -84,93 +124,205 @@ This way you can override any bundle's template.
 
 API reference
 -------------
+
+Both :class:`JinjaPlugin` and :class:`MakoPlugin` provide two important
+methods: `register_templates` to declare the template directories, and
+`render_template` to actually use them.
+
 """
 from copy import deepcopy
 from functools import wraps
+import logging
 from werkzeug import Response
-from tool import context
+from tool import app
 from tool import dist
 from tool.routing import url_for
 from tool.signals import called_on, Signal
-from tool.application import app_manager_ready, request_ready
+from tool.application import request_ready
+from tool.plugins import get_feature
+import tool.plugins
+
+logger = logging.getLogger(__name__)
 
 dist.check_dependencies(__name__)
 
-from jinja2 import Environment, ChoiceLoader, FileSystemLoader, PackageLoader, PrefixLoader
+try:
+    import jinja2 #import Environment, ChoiceLoader, FileSystemLoader, PackageLoader, PrefixLoader
+except ImportError:
+    jinja2 = None
+
+try:
+    import mako
+    import mako.lookup
+except ImportError:
+    mako = None
 
 
-__all__ = [
-    'as_html', 'templating_ready', 'register_templates', 'render_template',
-    'render_response'
-]
+__all__ = ['JinjaPlugin', 'MakoPlugin', 'as_html', 'register_templates',
+           'render_template', 'render_response']
 
 
+FEATURE = 'templating'
 DEFAULT_PATH = 'templates'
+DEFAULT_TEMPLATE_FUNCTIONS = {
+    'url_for': url_for,
+}
 
 
-templating_ready = Signal()
+class BaseTemplatingPlugin(tool.plugins.BasePlugin):
+
+    features = FEATURE
+
+    def register_templates(self, module_path, dir_name=DEFAULT_PATH,
+                           prefix=None):
+        """
+        Registers given extension's templates in the template loader.
+
+        :param module_path:
+            The dotted path to the bundle module. The absolute path to the
+            templates will depend on the module location.
+        :param dir_name:
+            Templates directory name within given module. Default is
+            ``templates``. Relative to module's ``__file__``.
+        :param prefix:
+            The prefix for templates. By default the rightmost part of the
+            module name is used e.g. ``tool.ext.admin`` will have the prefix
+            ``admin``.
+
+        """
+        raise NotImplementedError
+
+    def update_template_context(self, data):
+        raise NotImplementedError
+
+    def render_template(self, path, context):
+        """Renders given template file with given context and returns the
+        result.
+
+        :param path:
+            Path to the template file. Should be previously registered with
+            :meth:`register_templates` and/or belong to the directories listed
+            is `searchpaths` (see configuration).
+        :param context:
+            A dictionary.
+
+        """
+        template = self.env['templating_env'].get_template(path)
+        return template.render(context)
 
 
-def register_templates(module_name, dir_name=DEFAULT_PATH, prefix=None):
-    """
-    Registers given bundle's templates in the Jinja template loader.
+class JinjaPlugin(BaseTemplatingPlugin):
+    """Offers integration with Jinja2_."""
+    def make_env(self, **settings):
+        if not jinja2:
+            raise ImportError('Could not import package jinja2.')
 
-    :param module_name:
-        The dotted path to the bundle module. The absolute path to the
-        templates will depend on the module location.
-    :param dir_name:
-        Templates directory name within given module. Default is ``templates``.
-        Relative to module's ``__file__``.
-    :param prefix:
-        The prefix for templates. By default the rightmost part of the module
-        name is used e.g. ``tool.ext.admin`` will have the prefix ``admin``.
+        paths = settings.pop('searchpaths', [DEFAULT_PATH])
 
-    Simple example (assuming that the code is in `my_bundle/__init__.py`)::
+        loader = jinja2.ChoiceLoader([
+            jinja2.FileSystemLoader(paths),
+            jinja2.PrefixLoader({})
+        ])
 
-        register_templates(__name__)
+        jinja_env = jinja2.Environment(loader=loader, **settings)
+        jinja_env.globals.update(DEFAULT_TEMPLATE_FUNCTIONS)
 
-    In this case the absolute path to templates will be constructed from module
-    location and the default name for template directory, i.e. something like
-    `/path/to/my_bundle/templates/`.
+        return {
+            'templating_env': jinja_env,
+        }
 
-    The templates will be available as ``my_bundle/template_name.html``.
+    def register_templates(self, module_path, dir_name=DEFAULT_PATH,
+                           prefix=None):
+        "See :func:`register_templates`."
+        _prefix = module_path.split('.')[-1] if prefix is None else prefix
 
-    Advanced usage::
-
-        register_templates('proj.bundle_foo', 'data/tmpl/', prefix='proj')
-
-    In this case the absolute path to templates will be something like
-    `/path/to/proj/bundle_foo/data/tmpl/`.
-
-    The templates will be available as ``proj/template_name.html``.
-
-    .. note::
-
-        The templates are actually registered only when the Jinja environment
-        is ready and the signal :attr:`templating_ready` fires. Usually this
-        implies loading the :class:`~tool.application.ApplicationManager`
-        (without compiling the WSGI stack).
-
-    .. warning::
-
-        This only works for bundles that are declared in settings. If a bundle
-        is not in settings but still imported e.g. with `find_urls`, its
-        loading occurs *after* `templating_ready` signal is broadcasted, so its
-        templates are never registered. Please mind that until the issue is
-        fixed here.
-
-    """
-    @called_on(templating_ready, weak=False)
-    def callback(**kwargs):
-        # this prefix/_prefix mess is because Python doesn't grok some
-        # namespace stuff
-        _prefix = module_name.split('.')[-1] if prefix is None else prefix
-        jinja_env = kwargs['sender']
+        jinja_env = self.env['templating_env']
         loaders = jinja_env.loader.loaders
         assert len(loaders) == 2
-        assert isinstance(loaders[1], PrefixLoader)
-        loader = PackageLoader(module_name, dir_name)
+        assert isinstance(loaders[1], jinja2.PrefixLoader)
+        loader = jinja2.PackageLoader(module_path, dir_name)
         loaders[1].mapping[_prefix] = loader
+    register_templates.__doc__ = (
+        BaseTemplatingPlugin.register_templates.__doc__)
+
+    def update_template_context(self, data):
+        self.env['templating_env'].globals.update(**data)
+
+
+class MakoPlugin(BaseTemplatingPlugin):
+    """Offers integration with Mako_."""
+    def make_env(self, **settings):
+        if not mako:
+            raise ImportError('Could not import package mako.')
+
+        paths = settings.pop('searchpaths', [DEFAULT_PATH])
+
+        from mako.lookup import TemplateLookup
+        loader = TemplateLookup(paths, input_encoding='utf-8',
+                                output_encoding='utf-8',
+                                default_filters=['decode.utf8'])
+
+        return {
+            'templating_env': loader,
+            'context': DEFAULT_TEMPLATE_FUNCTIONS.copy(),
+        }
+
+    def register_templates(self, module_path, dir_name=DEFAULT_PATH,
+                           prefix=None):
+        import os.path
+        from tool.importing import import_module
+        mod = import_module(module_path)
+        root = mod.__path__[0]
+        path = os.path.join(root, dir_name)
+        self.env['templating_env'].directories.append(path)
+    register_templates.__doc__ = (
+        BaseTemplatingPlugin.register_templates.__doc__)
+
+    def update_template_context(self, data):
+        self.env['context'].update(data)
+
+    def render_template(self, path, context):
+        template = self.env['templating_env'].get_template(path)
+        combined_context = dict(self.env['context'], **context)
+        return template.render_unicode(**combined_context)
+    render_template.__doc__ = BaseTemplatingPlugin.render_template.__doc__
+
+
+
+''' XXX bad idea: mixin methods should simply replace base methods without any
+    super(), but here we really need to call both base and mixed-in methods.
+    So it's easier to just call `register_templates` in `make_env`. But the
+    underlying machinery can be somehow replaced.
+
+class TemplatePluginMixin(object):
+    "TODO: a mixin that automatically registers templates for given plugin."
+
+    template_path = DEFAULT_PATH
+
+    def make_env(self, **kwargs):
+        raise NotImplementedError('TODO')
+        # TODO: call register_templates(self.__module__,
+        #                               dir_name=self.template_path)
+        # the problem is in merging the base and mixed-in code
+
+
+# TODO: use a mixin for plugin class, e.g.:
+# class BlogPlugin(BasePlugin, TemplateMixin):
+#     template_path = 'custom/template/path'
+'''
+
+def register_templates(module_path, dir_name=DEFAULT_PATH, prefix=None):
+    """See :meth:`JinjaPlugin.register_templates` and
+    :meth:`MakoPlugin.register_templates`.
+    """
+    app.get_feature(FEATURE).register_templates(module_path, dir_name, prefix)
+
+@called_on(request_ready)
+def add_request_to_templating_env(*args, **kwargs):
+    logger.debug('Updating templating environment for the fresh Request object...')
+
+    plugin = get_feature(FEATURE)
+    plugin.update_template_context({'request': kwargs['sender']})
 
 
 # Template rendering
@@ -183,11 +335,8 @@ def render_template(template_path, **extra_context):
         path to the template; must belong to one of directories listed in
         `searchpaths` (see configuration).
     """
-    assert hasattr(context, 'templating_env'), (
-        'Jinja environment must be initialized. Make sure the bundle\'s setup '
-        'function is called.')
-    template = context.templating_env.get_template(template_path)
-    return template.render(extra_context)
+    plugin = app.get_feature(FEATURE)
+    return plugin.render_template(template_path, extra_context)
 
 def render_response(template_path, mimetype='text/html', **extra_context):
     """TODO
@@ -217,8 +366,8 @@ def as_html(template_path):
         return inner
     return wrapper
 
-
-@called_on(app_manager_ready)
+'''
+#@called_on(app_manager_ready)
 def setup(sender, **kwargs):
     """
     Setup the ApplicationManager to use Jinja2.
@@ -229,6 +378,10 @@ def setup(sender, **kwargs):
         conf = manager.get_settings_for_bundle(__name__, {})
     except KeyError:
         return False
+
+    conf = {} if conf is None else conf
+
+    print 'conf is', repr(conf)
 
     #conf = manager.settings['bundles']['jinja']
     #conf = deepcopy(manager.settings.get('templates', {}))
@@ -267,9 +420,6 @@ ChoiceLoader(
         PrefixLoader({})
     ])
 
-
-
-
     # (also, mb jinja provides a signal and listens to it; when a bundle wants
     # to register a template, it just emits the signal and jinja either
     # collects the info until it's ready or processes immediately)
@@ -277,42 +427,13 @@ ChoiceLoader(
     #loader = FileSystemLoader(paths)
     #loader = ChoiceLoader([FileSystemLoader(path) for path in paths])
 
-    context.templating_env = Environment(loader=loader, **conf)
+    tmpl_env = Environment(loader=loader, **conf)
+    context.app_manager.live_conf[__name__]['templating_env'] = tmpl_env
 
-    templating_ready.send(context.templating_env)
+    templating_ready.send(tmpl_env)
+'''
 
-@called_on(request_ready)
-def update_jinja_env(*args, **kwargs):
-    try:
-        settings = context.app_manager.get_settings_for_bundle(__name__, {})
-    except KeyError:
-        # probably not the right app for us, just ignore
-        return False
-    default_globals = dict(
-        url_for=url_for,
-        request=context.request
-    )
-    #_globals = dict(default_globals)  #, **conf.get('globals', {}))
-    #if 'globals' in settings:
-    default_globals.update(settings.get('globals', {}))
-    context.templating_env.globals.update(default_globals)
 
-    #signals.connect(init_jinja_env, signal='request_ready', weak=False)
-
-    #tmpl_loaders = {
-    #}
-
-    #tmpl_globals = {
-    #}
-
-    #tmpl_filters = {
-    #}
-    #context.template_env = create_template_environment(
-    #    paths   = tmpl_paths,
-    #    loaders = tmpl_loaders,
-    #    globals = tmpl_globals,
-    #    filters = tmpl_filters,
-    #)
 """
 from jinja2 import Environment, FileSystemLoader, ChoiceLoader, TemplateNotFound
 

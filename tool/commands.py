@@ -10,23 +10,61 @@ Tool provides a set of built-in commands for :doc:`cli`.
 from werkzeug import run_simple
 #from werkzeug.script import make_shell
 
-from tool import cli
-from tool import context
+from tool.cli import arg
+from tool import app
 
 
-__all__ = ['serve', 'shell']
+__all__ = ['make_serve', 'shell']
 
 
-@cli.command()
-def serve(host=('h', 'localhost', 'host'), port=('p', 6060, 'port')):
-    "Run development server for your application."
-    run_simple(host, port, context.app)
+def make_serve(application):
+    """Factory that expects an :class:`ApplicationManager` instance and returns
+    the CLI command `serve` bound to that instance.
 
-@cli.command()
-def shell(plain=('p', False, 'plain')):
-    "Spawns an interactive Python shell for your application."
-    init_func = lambda: {'context': context}    #{'app': app_factory}
-    sh = make_shell(init_func, plain=plain)
+    We could do without the factory and simply peek into thread-local variable
+    `tool.app` but when threading is activated `by` the command (e.g. with
+    autoreloader), that variable gets lost. So we explicitly inform this very
+    command about the application.
+    """
+    @arg('--host', default='localhost')
+    @arg('-p', '--port', default=6060,
+         help='do not reload the server on code change')
+    @arg('--noreload', default=False, action='store_true')
+    @arg('--nodebug', default=False, action='store_true',
+         help='do not use the interactive debugger')
+    def serve(args):
+        """ Runs development server for your application. Wrapper for Werkzeug's
+        run_simple_ function.
+
+        Note that without ``nodebug`` this will wrap the application into
+        `werkzeug.debug.DebuggedApplication` without touching the application's
+        WSGI stack, i.e. this middleware will *not* be visible in the output of
+        :func:`tool.debug.print_wsgi_stack`. The reason is simple: this command
+        only serves the application but does not configure it; therefore it should
+        not modify the internals of the object being served.
+
+        .. _run_simple: http://werkzeug.pocoo.org/documentation/dev/serving.html#werkzeug.run_simple
+        """
+        run_simple(
+            application = application,
+            hostname = args.host,
+            port = args.port,
+            use_reloader = not args.noreload,
+            use_debugger = not args.nodebug,
+        )
+    return serve
+
+@arg('--plain', default=False)
+def shell(args):
+    """ Spawns an interactive Python shell for your application. Picks the
+    first choice of: bpython, IPython, plain Python. Use --plain to force plain
+    Python shell.
+    """
+    # TODO: this should not trigger the WSGI/routing stuff to load.
+    # maybe load web-related things and extensions when needed only?
+    # See e.g. http://dev.pocoo.org/projects/werkzeug/browser/examples/manage-simplewiki.py
+    init_func = lambda: {'app': app}
+    sh = make_shell(init_func, plain=args.plain)
     sh()
 
 def make_shell(init_func=None, banner=None, plain=False):

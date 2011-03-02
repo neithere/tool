@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from tool import context
+from tool import app
 
 
 __all__ = ['get_user']
@@ -32,7 +32,7 @@ def get_user(request=None):
             user_id = request.remote_user
 
     """
-    request = request or context.request
+    request = request or app.request
     try:
         return request.environ['repoze.who.identity']['instance']
     except KeyError:

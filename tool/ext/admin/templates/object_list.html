@@ -20,12 +20,12 @@
 {% block content %}
 
     <p style="float: right;">
-        <a href="{{ url_for('tool.ext.admin.object_detail',
+        <a href="{{ url_for('tool.ext.admin.views.object_detail',
                             namespace=namespace,
-                            model_name=query.model.__name__) }}">Add {{ query.model.meta.get_label() }}</a>
+                            model_name=query.doc_class.__name__) }}">Add {{ query.doc_class.meta.get_label() }}</a>
     </p>
 
-    <p>{{ query.count() }} {{ query.model.meta.get_label_plural() }}</p>
+    <p>{{ query.count() }} {{ query.doc_class.meta.get_label_plural() }}</p>
 
   <div class="pagination" style="overflow: hidden;">
     <div style="float: left">
@@ -68,7 +68,7 @@
             {# TODO: make a simple table manager to handle all this stuff in Python #}
             {% for list_name in list_names %}
                 {% if list_name == '__unicode__' %}
-                    <th>{{ query.model.meta.get_label().capitalize() }}</th>
+                    <th>{{ query.doc_class.meta.get_label().capitalize() }}</th>
                 {% else %}
                     <th>
                         {# TODO: remove the hacks, implement sorting properly #}
@@ -78,7 +78,7 @@
                         {% else %}
                             <a href="?sort_by={{ list_name }}&amp;sort_reverse=0">&darr;
                         {% endif %}
-                            {{ query.model.meta.labels.get(list_name) or list_name }}
+                            {{ query.doc_class.meta.labels.get(list_name) or list_name }}
                         </a>
                     </th>
                 {% endif %}
@@ -90,9 +90,9 @@
             {% for list_name in list_names %}
                 <td>
                 {% if loop.first %}
-                    <a href="{{ url_for('tool.ext.admin.object_detail',
+                    <a href="{{ url_for('tool.ext.admin.views.object_detail',
                                         namespace=namespace, 
-                                        model_name=query.model.__name__, 
+                                        model_name=query.doc_class.__name__, 
                                         pk=object.pk) }}">
                 {% endif %}
                 {% if list_name == '__unicode__' %}

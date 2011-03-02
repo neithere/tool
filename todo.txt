@@ -1,0 +1,16 @@
+* A helper to build iterables when you need to fetch results already divided
+  into the pages
+
+  https://github.com/svetlyak40wt/pagerator/
+
+* Logbook is a logging sytem for Python that replaces the standard library’s
+  logging module. (Ronacher, Brandl)
+  
+  http://packages.python.org/Logbook/
+  http://dev.svetlyak.ru/better-python-logging/
+
+* Object routing framework powered by regular expressions
+  
+  http://pypi.python.org/pypi/roadmap/
+
+* http://pypi.python.org/pypi/peewee/

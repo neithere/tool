@@ -1,12 +1,13 @@
-__all__ = ['DocuPlugin']
+__all__ = ['DoquPlugin']
 
 
-from tool.ext.documents import db    # FIXME use bundle conf
+#from tool.ext.documents import storages
+from tool.plugins import get_feature
 from schema import User
 
 
-class DocuPlugin(object):
-    """ Docu-powered authenticator and metadata provider for repoze.who.
+class DoquPlugin(object):
+    """ Doqu-powered authenticator and metadata provider for repoze.who.
     """
 
     def __init__(self):
@@ -19,6 +20,8 @@ class DocuPlugin(object):
             password = identity['password']
         except KeyError:
             return None
+
+        db = get_feature('authentication').env['database']
 
         users = User.objects(db).where(username=username)
 
@@ -37,9 +40,10 @@ class DocuPlugin(object):
 
     # IMetadataProvider
     def add_metadata(self, environ, identity):
+        db = get_feature('authentication').env['database']
         userid = identity.get('repoze.who.userid')
         try:
-            instance = User.object(db, userid)
+            instance = db.get(User, userid)
         except KeyError:
             pass
         else:

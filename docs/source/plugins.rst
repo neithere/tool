@@ -1,0 +1,2 @@
+.. automodule:: tool.plugins
+   :members:

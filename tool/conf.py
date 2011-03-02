@@ -7,6 +7,8 @@ Configuration
 The configuration is just a dictionary. It may come from different sources and
 in different formats, so we just provide some shortcuts to simplify things.
 
+
+
 Sections
 --------
 
@@ -111,7 +113,7 @@ def get_settings_for_bundle(settings, path, default=None):
         bundles:
             tool.ext.templating:
                 searchpaths: ['templates/']
-            tool.ext.documents: nil    # --> `None` in Python
+            tool.ext.documents: null    # --> `None` in Python
 
     .. note::
 

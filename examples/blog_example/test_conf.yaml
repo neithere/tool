@@ -1,0 +1,10 @@
+debug: true
+plugins:
+    blog.Blog: null
+    tool.ext.werkzeug_routing.Routing: null
+    tool.ext.documents.DocuPlugin:
+        default:
+            backend: docu.ext.shelve_db
+            path: blog_test.db
+
+    tool.ext.templating.JinjaPlugin: null

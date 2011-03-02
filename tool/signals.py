@@ -66,17 +66,26 @@ achieve the same result::
 
         connect(log_saving_event, post_save)
 
-.. note:: no matter how exactly you define, connect and send signals, they do
-    *not* depend on Tool. Any Tool-specific signals will work with non-tool
+.. note::
+
+    No matter how exactly you define, connect and send signals, they do *not*
+    depend on Tool. Any Tool-specific signals will work with non-tool
     receivers; any non-Tool signals can be subscribed to with Tool decorators.
     The only requirement is the PyDispatcher library.
+
+.. note::
+
+    The :class:`Signal` class is optional but really useful for logging.
 
 API reference
 -------------
 """
 
 from functools import wraps
+import logging
 from pydispatch.dispatcher import Anonymous, Any, connect, disconnect, send
+
+logger = logging.getLogger('tool.signals')
 
 
 __all__ = ['called_on', 'connect', 'called_on', 'disconnect', 'send', 'Signal']
@@ -84,8 +93,32 @@ __all__ = ['called_on', 'connect', 'called_on', 'disconnect', 'send', 'Signal']
 
 class Signal(object):
     """
-    Base class for signals.
+    Base class for signals. An instance of this class serves as a unique event
+    representation to which external functions can be subscribed. Usage::
+
+        something_saved = Signal()
+
+    The only problem with the above example is that the Signal instance itself
+    does not know the name of the variable it has been assigned to. This
+    problem can be safely ignored until you want to read the debug-level logs
+    where the signals report when a subscriber is (dis)connected or the signal
+    is emitted. To make the logs *much* more readable, the following optional
+    notation is recommended::
+
+        something_saved = Signal('something_saved')
+
+    This is not DRY but more informative and does not involve an auxiliary
+    registry which would complicate things too much.
     """
+    def __init__(self, name=None):
+        self.name = name
+
+    def __repr__(self):
+        return unicode(self)
+
+    def __unicode__(self):
+        return self.name or u'UNNAMED {0}'.format(hash(self))
+
     def connect(self, receiver, sender=Any, weak=True):
         """
         Connect receiver to sender for this signal. Wrapper for
@@ -98,8 +131,19 @@ class Signal(object):
             # call log_saving_event each time a Note is saved
             post_save.connect(log_saving_event, Note)
 
+        Publishes a debug log message via Python's `logging` module.
         """
         connect(receiver, signal=self, sender=sender, weak=weak)
+
+        # Log readable representation of both signal and receiver.
+        # This is cheap because signals are mostly connected on start.
+        if hasattr(receiver, '__module__') and hasattr(receiver, '__name__'):
+            rcvr_repr = u'{0}.{1}'.format(receiver.__module__,
+                                          receiver.__name__)
+        else:
+            rcvr_repr = unicode(repr(receiver))
+
+        logger.debug('Subscribed {rcvr_repr} to "{self}"'.format(**locals()))
 
     def send(self, sender=Anonymous, *arguments, **named):
         """
@@ -114,7 +158,9 @@ class Signal(object):
                     ...
                     post_save.send(Note)
 
+        Publishes a debug log message via Python's `logging` module.
         """
+        logger.debug('Emitting signal "{self}"'.format(**locals()))
         send(signal=self, sender=sender, *arguments, **named)
 
     def disconnect(receiver, sender=Any, weak=True):
@@ -127,8 +173,10 @@ class Signal(object):
             # do not trigger log_saving_event when a Note is saved
             post_save.disconnect(log_saving_event, sender=Note)
 
+        Publishes a debug log message via Python's `logging` module.
         """
         disconnect(receiver, signal=self, sender=sender, weak=weak)
+        logger.debug('{receiver} unsubscribed from {self}'.format(**locals()))
 
 
 def called_on(signal=Any, sender=Any, weak=True):
@@ -154,6 +202,10 @@ def called_on(signal=Any, sender=Any, weak=True):
 
     """
     def inner(receiver):
-        connect(receiver, signal=signal, sender=sender, weak=weak)
+        if isinstance(signal, Signal):
+            # preferable: involves proper logging
+            signal.connect(receiver=receiver, sender=sender, weak=weak)
+        else:
+            connect(receiver, signal=signal, sender=sender, weak=weak)
         return receiver
     return inner

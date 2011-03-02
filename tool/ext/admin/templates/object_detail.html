@@ -63,7 +63,7 @@
                 
                 {% if field.queryset %}
                     {% if field.name in form.data and form.data[field.name] %}
-                        <a href="{{ url_for('tool.ext.admin.object_detail',
+                        <a href="{{ url_for('tool.ext.admin.views.object_detail',
                                     namespace=namespace,
                                     model_name=form.data[field.name].__class__.__name__,
                                     pk=form.data[field.name].pk) }}">go to...</a>
@@ -72,9 +72,9 @@
                                its namespace and then the URL -->
                     <!-- TODO: use the JavaScript thingy as in Django, see
                                /admin-media/js/admin/RelatedObjectLookups.js -->
-                    <a href="{{ url_for('tool.ext.admin.object_detail',
+                    <a href="{{ url_for('tool.ext.admin.views.object_detail',
                                         namespace=namespace,
-                                        model_name=field.queryset.model.__name__) 
+                                        model_name=field.queryset.doc_class.__name__) 
                              }}">add another...</a>
                 {% endif %}
             </td>
@@ -91,7 +91,7 @@
     {% for ns, types in other_doc_types.iteritems() %}
         <p>{{ ns }}: 
         {% for doc_type in types %}
-            <a href="{{ url_for('tool.ext.admin.object_detail', namespace=ns,
+            <a href="{{ url_for('tool.ext.admin.views.object_detail', namespace=ns,
                                 model_name=doc_type, pk=object.pk) }}">{{ doc_type }}</a>
         {% endfor %}
         </p>
@@ -104,7 +104,7 @@
         {% for attr_name, ref_objects in attrs.iteritems() %}
             <ul>
             {% for ref_obj in ref_objects %}
-                <li><a href="{{ url_for('tool.ext.admin.object_detail',
+                <li><a href="{{ url_for('tool.ext.admin.views.object_detail',
                                         namespace=namespace,
                                         model_name=model.__name__,
                                         pk=ref_obj.pk) }}">{{ ref_obj }}</a>
